@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { campusToday, campusTimeOfDay, addDays, dateRange, currentMealPeriodIndex } from './dates';
+import {
+  campusToday,
+  campusTimeOfDay,
+  addDays,
+  dateRange,
+  currentMealPeriodIndex,
+  servingMealPeriodIndex,
+} from './dates';
 
 describe('campus date resolution', () => {
   it('uses Chapel Hill time, not UTC', () => {
@@ -84,5 +91,24 @@ describe('currentMealPeriodIndex', () => {
 
   it('does not crash on an empty menu', () => {
     expect(currentMealPeriodIndex([], '12:00')).toBe(0);
+  });
+});
+
+describe('servingMealPeriodIndex', () => {
+  const chase = [
+    { startTime: '07:00', endTime: '10:45' },
+    { startTime: '11:00', endTime: '15:00' },
+    { startTime: '21:00', endTime: '00:00' },
+  ];
+
+  it('reports the period actually being served', () => {
+    expect(servingMealPeriodIndex(chase, '08:00')).toBe(0);
+    expect(servingMealPeriodIndex(chase, '23:00')).toBe(2);
+  });
+
+  it('reports nothing between services, so no false "serving now" badge', () => {
+    expect(servingMealPeriodIndex(chase, '05:00')).toBe(-1);
+    expect(servingMealPeriodIndex(chase, '10:50')).toBe(-1);
+    expect(servingMealPeriodIndex(chase, '17:00')).toBe(-1);
   });
 });

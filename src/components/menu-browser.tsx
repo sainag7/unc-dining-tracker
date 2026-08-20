@@ -14,12 +14,15 @@ import type { StationWithItems } from '@/lib/menu';
 export function MenuBrowser({
   stations,
   context,
+  defaultFilters = [],
 }: {
   stations: StationWithItems[];
   context: SheetContext;
+  /** Dietary preferences from the user's profile, pre-applied as Settings promises. */
+  defaultFilters?: string[];
 }) {
   const [query, setQuery] = useState('');
-  const [activeProps, setActiveProps] = useState<string[]>([]);
+  const [activeProps, setActiveProps] = useState<string[]>(defaultFilters);
   const [selected, setSelected] = useState<RecipeRow | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [justLogged, setJustLogged] = useState<string | null>(null);

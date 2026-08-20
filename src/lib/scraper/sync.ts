@@ -109,11 +109,16 @@ async function writeMenuDay(db: AdminClient, hallId: number, day: ScrapedMenuDay
 }
 
 /**
- * Full sync: menus for every active hall across the lookahead window, then
- * nutrition for any recipe we haven't already cached.
+ * Full sync: for each hall and date, fetch the menu, cache any nutrition we
+ * don't already have, then write the day.
+ *
+ * Days are handled one at a time rather than in three global passes. On a cold
+ * cache that's the difference between the first menu appearing in a couple of
+ * minutes and appearing after every recipe on the calendar has been fetched —
+ * and it means an interrupted run still leaves whole, usable days behind.
  *
  * A failure on one hall/date is recorded and skipped rather than aborting the
- * run — a broken Tuesday shouldn't cost us Wednesday's menu.
+ * run: a broken Tuesday shouldn't cost us Wednesday's menu.
  */
 export async function syncAll(
   db: AdminClient,
@@ -133,16 +138,18 @@ export async function syncAll(
     throw new Error(`Could not load dining halls: ${hallErr?.message ?? 'none active'}`);
   }
 
-  // Pass 1 — menus. Collect every recipe id and its tags along the way.
-  const seenRecipeIds = new Set<number>();
-  const menuTags: MenuTags = new Map();
-  const scrapedDays: ScrapedMenuDay[] = [];
+  // Recipe ids confirmed present in the database, carried across every day in
+  // this run so a recipe is only ever looked up once.
+  const cached = new Set<number>();
+  let daysScraped = 0;
+  let recipesAdded = 0;
 
-  for (const hall of halls) {
-    for (const date of dates) {
+  for (const date of dates) {
+    for (const hall of halls) {
       try {
         const day = await fetchMenuDay(hall.slug, date);
-        for (const id of collectRecipeIds(day)) seenRecipeIds.add(id);
+
+        const menuTags: MenuTags = new Map();
         for (const period of day.mealPeriods) {
           for (const station of period.stations) {
             for (const item of station.items) {
@@ -155,69 +162,53 @@ export async function syncAll(
             }
           }
         }
-        scrapedDays.push(day);
 
-        // Recipes must exist before menu_items can reference them, so the
-        // actual write happens after pass 2.
+        const ids = [...collectRecipeIds(day)].filter((id) => !cached.has(id));
+
+        // Which of these are already in the database from an earlier run?
+        const CHUNK = 500;
+        for (let i = 0; i < ids.length; i += CHUNK) {
+          const { data, error } = await db
+            .from('recipes')
+            .select('id')
+            .in('id', ids.slice(i, i + CHUNK));
+          if (error) throw new Error(`recipes lookup failed: ${error.message}`);
+          for (const row of data ?? []) cached.add(row.id);
+        }
+
+        // Fetch nutrition for the genuinely new ones. This is the step that
+        // keeps daily volume near zero once the cache is warm.
+        for (const id of ids) {
+          if (cached.has(id)) continue;
+          try {
+            const recipe = await fetchRecipe(id);
+            const { error } = await db
+              .from('recipes')
+              .upsert(recipeToRow(recipe, menuTags.get(id)));
+            if (error) throw new Error(error.message);
+            cached.add(id);
+            recipesAdded++;
+          } catch (err) {
+            errors.push(`recipe ${id}: ${(err as Error).message}`);
+          }
+        }
+
+        // Drop items whose recipe couldn't be fetched, so the FK holds.
+        const filtered: ScrapedMenuDay = {
+          ...day,
+          mealPeriods: day.mealPeriods.map((p) => ({
+            ...p,
+            stations: p.stations
+              .map((s) => ({ ...s, items: s.items.filter((i) => cached.has(i.recipeId)) }))
+              .filter((s) => s.items.length > 0),
+          })),
+        };
+
+        await writeMenuDay(db, hall.id, filtered);
+        daysScraped++;
       } catch (err) {
         errors.push(`${hall.slug} ${date}: ${(err as Error).message}`);
       }
-    }
-  }
-
-  // Pass 2 — nutrition, but only for recipes we've never seen. This is the step
-  // that keeps daily volume near zero once the cache is warm.
-  const known = new Set<number>();
-  const ids = [...seenRecipeIds];
-  const CHUNK = 500;
-
-  for (let i = 0; i < ids.length; i += CHUNK) {
-    const { data, error } = await db
-      .from('recipes')
-      .select('id')
-      .in('id', ids.slice(i, i + CHUNK));
-    if (error) throw new Error(`recipes lookup failed: ${error.message}`);
-    for (const row of data ?? []) known.add(row.id);
-  }
-
-  const missing = ids.filter((id) => !known.has(id));
-  let recipesAdded = 0;
-
-  for (const id of missing) {
-    try {
-      const recipe = await fetchRecipe(id);
-      const { error } = await db.from('recipes').upsert(recipeToRow(recipe, menuTags.get(id)));
-      if (error) throw new Error(error.message);
-      recipesAdded++;
-    } catch (err) {
-      errors.push(`recipe ${id}: ${(err as Error).message}`);
-    }
-  }
-
-  // Pass 3 — write menus, now that their recipes exist. Items whose recipe
-  // fetch failed are dropped so the FK stays satisfied.
-  const usable = new Set([...known, ...missing]);
-  let daysScraped = 0;
-
-  for (const day of scrapedDays) {
-    const hall = halls.find((h) => h.slug === day.hallSlug);
-    if (!hall) continue;
-
-    const filtered: ScrapedMenuDay = {
-      ...day,
-      mealPeriods: day.mealPeriods.map((p) => ({
-        ...p,
-        stations: p.stations
-          .map((s) => ({ ...s, items: s.items.filter((i) => usable.has(i.recipeId)) }))
-          .filter((s) => s.items.length > 0),
-      })),
-    };
-
-    try {
-      await writeMenuDay(db, hall.id, filtered);
-      daysScraped++;
-    } catch (err) {
-      errors.push(`write ${day.hallSlug} ${day.serviceDate}: ${(err as Error).message}`);
     }
   }
 

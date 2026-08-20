@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { getHalls, getMealPeriods, getStations } from '@/lib/menu';
 import { getDayLog, getProfile, totalsFor } from '@/lib/log';
-import { campusToday, currentMealPeriodIndex } from '@/lib/dates';
+import { campusToday, currentMealPeriodIndex, servingMealPeriodIndex } from '@/lib/dates';
 import { TopNav } from '@/components/top-nav';
 import { MenuBrowser } from '@/components/menu-browser';
 import { DayTotalBar } from '@/components/day-total-bar';
@@ -28,14 +28,15 @@ export default async function MenuPage(props: PageProps<'/'>) {
 
   const hall = halls.find((h) => h.slug === hallSlug) ?? halls[0] ?? null;
 
-  // Which period is actually being served right now — only meaningful today.
-  const servingNowIndex = date === today ? currentMealPeriodIndex(periods) : -1;
-  const servingNowPeriod = servingNowIndex >= 0 ? (periods[servingNowIndex]?.name ?? null) : null;
+  // "Serving now" is strict — it's blank between services. Tab selection is
+  // forgiving, falling forward to whatever is most useful to look at.
+  const servingNowPeriod =
+    date === today ? (periods[servingMealPeriodIndex(periods)]?.name ?? null) : null;
 
   const requested = param('period');
   const period =
     periods.find((p) => p.name === requested) ??
-    periods[servingNowIndex >= 0 ? servingNowIndex : 0] ??
+    periods[date === today ? currentMealPeriodIndex(periods) : 0] ??
     null;
 
   const {
@@ -72,6 +73,7 @@ export default async function MenuPage(props: PageProps<'/'>) {
         ) : (
           <MenuBrowser
             stations={stations}
+            defaultFilters={profile?.dietary_prefs ?? []}
             context={{
               serviceDate: date,
               mealPeriodName: period?.name ?? null,

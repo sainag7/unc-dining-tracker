@@ -40,27 +40,46 @@ export function dateRange(startDate: string, count: number): string[] {
   return Array.from({ length: count }, (_, i) => addDays(startDate, i));
 }
 
+interface Period {
+  startTime: string | null;
+  endTime: string | null;
+}
+
 /**
- * Picks the meal period that best matches the current time.
+ * Index of the period being served right now, or -1 if the halls are between
+ * services or closed.
  *
- * Returns the period currently being served; if the halls are between services
- * (or closed), returns the next one starting today, and failing that the first
- * period of the day — so the menu screen always opens on something useful.
+ * Kept strict and separate from tab selection: the "serving now" badge must
+ * never appear at 5am just because Breakfast is the sensible tab to open on.
  */
-export function currentMealPeriodIndex(
-  periods: Array<{ startTime: string | null; endTime: string | null }>,
+export function servingMealPeriodIndex(
+  periods: Period[],
   nowHHMM: string = campusTimeOfDay(),
 ): number {
-  if (periods.length === 0) return 0;
-
-  const active = periods.findIndex((p) => {
+  return periods.findIndex((p) => {
     if (!p.startTime || !p.endTime) return false;
-    // A period ending at or before its start crosses midnight (e.g. 9pm-12am).
+    // A period ending at or before its start crosses midnight (e.g. 9pm-2am).
     return p.endTime <= p.startTime
       ? nowHHMM >= p.startTime || nowHHMM < p.endTime
       : nowHHMM >= p.startTime && nowHHMM < p.endTime;
   });
-  if (active !== -1) return active;
+}
+
+/**
+ * Which meal period tab to open on.
+ *
+ * The one being served if there is one; otherwise the next to start today, and
+ * failing that the first of the day — so the menu always opens on something
+ * useful, even at 5am or after the last service ends.
+ */
+export function currentMealPeriodIndex(
+  periods: Period[],
+  nowHHMM: string = campusTimeOfDay(),
+): number {
+  if (periods.length === 0) return 0;
+
+  const serving = servingMealPeriodIndex(periods, nowHHMM);
+  if (serving !== -1) return serving;
 
   const upcoming = periods.findIndex((p) => p.startTime !== null && nowHHMM < p.startTime);
   return upcoming !== -1 ? upcoming : 0;
