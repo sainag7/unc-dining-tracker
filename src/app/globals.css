@@ -1,26 +1,130 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+
+/*
+  Design direction: "the dining hall, not the fitness app."
+  Station signage sets the type, UNC's own blue and navy set the structure, and
+  the nutrition label — a real artifact of this subject — is the one place the
+  design gets loud.
+*/
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --paper: #f1f0eb;
+  --paper-raised: #ffffff;
+  --paper-sunk: #e7e5de;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --ink: #16212b;
+  --ink-soft: #5b6773;
+  --ink-faint: #8d97a1;
+
+  --rule: #d7d5cd;
+  --rule-strong: #16212b;
+
+  /* UNC's actual palette — institutional, not decorative. */
+  --carolina: #4b9cd3;
+  --navy: #13294b;
+
+  /* Warm amber reads as "hot food on the line right now". */
+  --serving: #b87407;
+  --serving-bg: #fdf3e0;
+
+  --danger: #b3261e;
+  --danger-bg: #fdeceb;
+
+  --shadow-sheet: 0 -8px 40px rgb(22 33 43 / 0.16);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --paper: #0f151b;
+    --paper-raised: #182029;
+    --paper-sunk: #0a0f14;
+
+    --ink: #e9ebe7;
+    --ink-soft: #9aa5b0;
+    --ink-faint: #6b7681;
+
+    --rule: #2a3540;
+    --rule-strong: #4a5764;
+
+    --carolina: #6bb4e4;
+    --navy: #a9c3e6;
+
+    --serving: #e5a542;
+    --serving-bg: #2b2115;
+
+    --danger: #f2857c;
+    --danger-bg: #2d1614;
+
+    --shadow-sheet: 0 -8px 40px rgb(0 0 0 / 0.5);
   }
 }
 
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-paper-sunk: var(--paper-sunk);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-carolina: var(--carolina);
+  --color-navy: var(--navy);
+  --color-serving: var(--serving);
+  --color-serving-bg: var(--serving-bg);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+
+  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-archivo-narrow), var(--font-public-sans), sans-serif;
+  --font-data: var(--font-plex-mono), ui-monospace, monospace;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  /* The bottom bar is fixed; keep content clear of it and of the home indicator. */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Station names are signage: condensed, uppercase, tightly tracked. */
+.signage {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+}
+
+/* Any figure the user compares against another figure gets tabular numerals. */
+.data {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Keyboard focus stays visible everywhere; never trade it for tidiness. */
+:focus-visible {
+  outline: 2px solid var(--carolina);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Horizontal tab strips scroll without advertising a scrollbar. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

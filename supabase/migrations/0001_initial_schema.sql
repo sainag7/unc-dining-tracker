@@ -153,6 +153,26 @@ create policy "own food log" on food_log
 
 -- scraper_runs: no policies at all, so it's service-role only.
 
+-- ------------------------------------------------------------------- grants
+--
+-- RLS decides which *rows* a role may touch; grants decide whether it may
+-- touch the table at all. Both are required — without these, every query
+-- fails with "permission denied for table" before RLS is ever consulted.
+
+grant usage on schema public to anon, authenticated, service_role;
+
+-- Menus are readable by everyone, signed in or not.
+grant select on dining_halls, recipes, menu_days, meal_periods, menu_items
+  to anon, authenticated;
+
+-- Users manage their own rows; the policies above constrain them to their own.
+grant select, insert, update, delete on profiles, food_log to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+
+-- The scraper writes menu data and reads everything.
+grant all on all tables in schema public to service_role;
+grant all on all sequences in schema public to service_role;
+
 -- --------------------------------------------------------------- triggers
 
 -- Every new auth user gets a profile row, so the app never has to cope with

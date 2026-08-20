@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Tray">
+  <rect width="512" height="512" rx="96" fill="#13294B"/>
+  <!-- A cafeteria tray, seen from above: rounded rectangle with two wells. -->
+  <rect x="80" y="128" width="352" height="256" rx="40" fill="none" stroke="#4B9CD3" stroke-width="24"/>
+  <rect x="128" y="176" width="140" height="160" rx="20" fill="#4B9CD3" opacity="0.9"/>
+  <rect x="296" y="176" width="88" height="72" rx="16" fill="#4B9CD3" opacity="0.55"/>
+  <rect x="296" y="264" width="88" height="72" rx="16" fill="#4B9CD3" opacity="0.55"/>
+</svg>
