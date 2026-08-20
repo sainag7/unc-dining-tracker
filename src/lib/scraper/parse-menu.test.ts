@@ -52,6 +52,21 @@ describe('parseMealPeriodLabel', () => {
       endTime: null,
     });
   });
+
+  it('handles weekend period names, which differ from weekdays', () => {
+    // Saturdays and Sundays replace Breakfast/Lunch with Continental/Brunch,
+    // which is why meal periods are stored per hall per day and never hardcoded.
+    expect(parseMealPeriodLabel('Continental (9am-11am)')).toMatchObject({
+      name: 'Continental',
+      startTime: '09:00',
+      endTime: '11:00',
+    });
+    expect(parseMealPeriodLabel('Brunch (11am-3pm)')).toMatchObject({
+      name: 'Brunch',
+      startTime: '11:00',
+      endTime: '15:00',
+    });
+  });
 });
 
 describe('parseMenuPage', () => {
