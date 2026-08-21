@@ -78,7 +78,7 @@ export default function LoginPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-12">
-      <Link href="/" className="signage mb-1 text-3xl text-navy">
+      <Link href="/" className="signage mb-1 text-[2.5rem] leading-none text-navy">
         Tray
       </Link>
       <p className="mb-8 text-sm text-ink-soft">
@@ -93,7 +93,7 @@ export default function LoginPage() {
             type="button"
             onClick={signInWithGoogle}
             disabled={busy}
-            className="w-full rounded-xl border border-rule bg-paper-raised py-3 text-sm font-semibold disabled:opacity-60"
+            className="signage w-full border-2 border-rule-strong py-3 text-base disabled:opacity-60"
           >
             Continue with Google
           </button>
@@ -120,7 +120,7 @@ export default function LoginPage() {
               onChange={(e) => setCode(e.target.value)}
               required
               placeholder="123456"
-              className="data w-full rounded-lg border border-rule bg-paper-raised px-3 py-2.5 text-lg tracking-[0.3em]"
+              className="data field-underline w-full text-lg tracking-[0.3em]"
             />
           </div>
         ) : (
@@ -137,7 +137,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="you@unc.edu"
-                className="w-full rounded-lg border border-rule bg-paper-raised px-3 py-2.5"
+                className="field-underline w-full text-base"
               />
             </div>
 
@@ -152,7 +152,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full rounded-lg border border-rule bg-paper-raised px-3 py-2.5"
+                className="field-underline w-full text-base"
               />
               {mode === 'signup' && (
                 <p className="mt-1 text-xs text-ink-soft">At least 8 characters.</p>
@@ -171,7 +171,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={busy}
-          className="w-full rounded-xl bg-navy py-3 text-sm font-semibold text-paper-raised disabled:opacity-60"
+          className="signage w-full bg-navy py-3.5 text-base text-paper-raised disabled:opacity-60"
         >
           {busy
             ? 'Working…'
@@ -193,14 +193,14 @@ export default function LoginPage() {
               setError(null);
               setNotice(null);
             }}
-            className="font-semibold text-carolina underline"
+            className="font-semibold text-carolina underline underline-offset-2"
           >
             {mode === 'signin' ? 'Create one' : 'Sign in'}
           </button>
         </p>
       )}
 
-      <Link href="/" className="mt-8 text-center text-sm text-ink-soft underline">
+      <Link href="/" className="mt-8 text-center text-sm text-carolina underline underline-offset-2">
         Browse the menu without an account
       </Link>
     </main>

@@ -60,7 +60,7 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
           min={1}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="data w-full rounded-lg border border-rule bg-paper-raised px-3 py-2.5"
+          className="data field-underline w-full text-base"
         />
         <span className="w-8 text-sm text-ink-soft">{unit}</span>
       </div>
@@ -70,7 +70,7 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       <section>
-        <h2 className="signage border-b-2 border-rule-strong pb-1 text-lg">Daily goals</h2>
+        <h2 className="signage rule-top pt-1.5 pb-1 text-[0.9375rem]">Daily goals</h2>
         <div className="mt-3 grid grid-cols-2 gap-3">
           {numberField('calories', 'Calories', calorieGoal, setCalorieGoal, 'cal')}
           {numberField('protein', 'Protein', proteinGoal, setProteinGoal, 'g')}
@@ -80,7 +80,7 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
       </section>
 
       <section>
-        <h2 className="signage border-b-2 border-rule-strong pb-1 text-lg">
+        <h2 className="signage rule-top pt-1.5 pb-1 text-[0.9375rem]">
           Dietary preferences
         </h2>
         <p className="mt-2 text-sm text-ink-soft">
@@ -95,8 +95,10 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
                 type="button"
                 onClick={() => setDietaryPrefs(toggle(dietaryPrefs, prop))}
                 aria-pressed={on}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-                  on ? 'bg-navy text-paper-raised' : 'border border-rule bg-paper-raised'
+                className={`border px-3 py-1.5 text-sm ${
+                  on
+                    ? 'border-carolina bg-carolina text-paper-raised'
+                    : 'border-rule text-ink-soft'
                 }`}
               >
                 {propertyLabel(prop)}
@@ -107,7 +109,7 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
       </section>
 
       <section>
-        <h2 className="signage border-b-2 border-rule-strong pb-1 text-lg">Allergens</h2>
+        <h2 className="signage rule-top pt-1.5 pb-1 text-[0.9375rem]">Allergens</h2>
         <p className="mt-2 text-sm text-ink-soft">
           Items containing these get a warning on the menu. They stay visible — UNC cooks in a
           shared kitchen, so always check with staff if it matters.
@@ -121,10 +123,10 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
                 type="button"
                 onClick={() => setAllergensAvoid(toggle(allergensAvoid, key))}
                 aria-pressed={on}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+                className={`border px-3 py-1.5 text-sm ${
                   on
-                    ? 'border border-danger bg-danger-bg text-danger'
-                    : 'border border-rule bg-paper-raised'
+                    ? 'border-danger bg-danger-bg font-semibold text-danger'
+                    : 'border-rule text-ink-soft'
                 }`}
               >
                 {label}
@@ -148,7 +150,7 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-xl bg-navy py-3 text-sm font-semibold text-paper-raised disabled:opacity-60"
+        className="signage w-full bg-navy py-3.5 text-base text-paper-raised disabled:opacity-60"
       >
         {pending ? 'Saving…' : 'Save settings'}
       </button>

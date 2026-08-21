@@ -74,10 +74,10 @@ export function NutritionLabel({
   const calories = recipe.calories === null ? '—' : Math.round(recipe.calories * servings);
 
   return (
-    <div className="border-2 border-rule-strong bg-paper-raised px-3 py-2 text-ink">
+    <div className="border-2 border-ink bg-paper-raised px-3 py-2 text-ink">
       <h3 className="signage text-3xl leading-none">Nutrition Facts</h3>
 
-      <div className="mt-1 flex items-baseline justify-between border-b-8 border-rule-strong pb-1 text-[13px]">
+      <div className="mt-1 flex items-baseline justify-between border-b-8 border-ink pb-1 text-[13px]">
         <span>Serving size</span>
         <span className="data font-semibold">{recipe.serving_size ?? '1 serving'}</span>
       </div>
@@ -91,7 +91,7 @@ export function NutritionLabel({
 
       <div className="pt-1 text-[11px] font-semibold">Amount per serving</div>
 
-      <div className="flex items-end justify-between border-b-4 border-rule-strong pb-1">
+      <div className="flex items-end justify-between border-b-4 border-ink pb-1">
         <span className="signage text-2xl">Calories</span>
         <span className="data text-4xl font-semibold leading-none">{calories}</span>
       </div>
@@ -146,7 +146,7 @@ export function NutritionLabel({
       />
       <Row label="Protein" value={amount(recipe.protein_g, servings, 'g')} bold />
 
-      <div className="mt-1 border-t-8 border-rule-strong" />
+      <div className="mt-1 border-t-8 border-ink" />
 
       <Row
         label="Vitamin D"
@@ -169,7 +169,7 @@ export function NutritionLabel({
         dv={percent(recipe.potassium_mg, servings, DAILY_VALUES.potassium_mg)}
       />
 
-      <p className="mt-2 border-t-4 border-rule-strong pt-2 text-[10px] leading-snug text-ink-soft">
+      <p className="mt-2 border-t-4 border-ink pt-2 text-[10px] leading-snug text-ink-soft">
         * Percent Daily Values are based on a 2,000 calorie diet. UNC prepares food in a
         commercial kitchen, so ingredients and preparation can vary from what&rsquo;s listed.
       </p>

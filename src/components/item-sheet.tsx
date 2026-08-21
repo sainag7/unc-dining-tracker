@@ -6,7 +6,7 @@ import { logFood } from '@/app/actions';
 import { allergenLabel, propertyLabel, conflictingAllergens } from '@/lib/labels';
 import type { RecipeRow } from '@/lib/supabase/database.types';
 
-/** Portion steps people actually take at a dining hall, rather than a free-text box. */
+/** Portions people actually take at a dining hall, rather than a free-text box. */
 const SERVING_STEPS = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4];
 
 export interface SheetContext {
@@ -20,13 +20,16 @@ export interface SheetContext {
 export function ItemSheet({
   recipe,
   context,
+  servingsToday = 0,
   onClose,
   onLogged,
 }: {
   recipe: RecipeRow;
   context: SheetContext;
+  /** Already logged today — shown so the sheet doesn't contradict the menu row. */
+  servingsToday?: number;
   onClose: () => void;
-  onLogged: (recipe: RecipeRow, servings: number) => void;
+  onLogged: (recipe: RecipeRow, servings: number, logId?: number) => void;
 }) {
   const [servings, setServings] = useState(1);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +44,6 @@ export function ItemSheet({
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', onKey);
-    // Stop the page behind the sheet from scrolling with it.
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
@@ -49,12 +51,6 @@ export function ItemSheet({
       document.body.style.overflow = previous;
     };
   }, [onClose]);
-
-  const stepIndex = SERVING_STEPS.indexOf(servings);
-  const step = (delta: number) => {
-    const next = SERVING_STEPS[Math.max(0, Math.min(SERVING_STEPS.length - 1, stepIndex + delta))];
-    if (next) setServings(next);
-  };
 
   function handleLog() {
     setError(null);
@@ -68,7 +64,7 @@ export function ItemSheet({
       });
 
       if (result.ok) {
-        onLogged(recipe, servings);
+        onLogged(recipe, servings, result.logId);
         onClose();
       } else {
         setError(result.error ?? 'Something went wrong.');
@@ -82,134 +78,106 @@ export function ItemSheet({
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 bg-ink/50 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-ink/50"
       />
 
       <div
         role="dialog"
         aria-modal="true"
         aria-label={recipe.name}
-        className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-paper p-4 pb-8 shadow-[var(--shadow-sheet)] sm:rounded-2xl"
+        className="relative max-h-[92vh] w-full max-w-lg overflow-y-auto bg-paper shadow-[var(--shadow-sheet)]"
       >
-        <div className="mb-3 flex items-start justify-between gap-4">
-          <div>
-            <h2 className="signage text-2xl leading-tight">{recipe.name}</h2>
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 bg-paper px-4 pt-3 pb-2">
+          <div className="min-w-0">
+            <h2 className="signage text-xl leading-tight">{recipe.name}</h2>
             {recipe.serving_size && (
-              <p className="text-sm text-ink-soft">Serving: {recipe.serving_size}</p>
+              <p className="data text-xs text-ink-soft">One serving: {recipe.serving_size}</p>
             )}
           </div>
           <button
             ref={closeRef}
             type="button"
             onClick={onClose}
-            className="rounded-full border border-rule px-3 py-1 text-sm text-ink-soft hover:bg-paper-sunk"
+            className="shrink-0 text-sm text-carolina"
           >
             Close
           </button>
         </div>
 
-        {conflicts.length > 0 && (
-          <p className="mb-3 rounded-lg border border-danger bg-danger-bg px-3 py-2 text-sm font-semibold text-danger">
-            Contains {conflicts.map(allergenLabel).join(', ')} — you asked to avoid that.
-          </p>
-        )}
+        <div className="px-4 pb-8">
+          {conflicts.length > 0 && (
+            <p className="mb-3 bg-danger-bg px-3 py-2 text-sm font-semibold text-danger">
+              Contains {conflicts.map(allergenLabel).join(', ')} — you asked to avoid that.
+            </p>
+          )}
 
-        {(recipe.properties.length > 0 || recipe.allergens.length > 0) && (
-          <div className="mb-3 flex flex-wrap gap-1.5">
-            {recipe.properties.map((p) => (
-              <span
-                key={p}
-                className="rounded-full bg-carolina/15 px-2 py-0.5 text-xs font-medium text-navy"
-              >
-                {propertyLabel(p)}
-              </span>
-            ))}
-            {recipe.allergens.map((a) => (
-              <span
-                key={a}
-                className="rounded-full border border-rule px-2 py-0.5 text-xs text-ink-soft"
-              >
-                {allergenLabel(a)}
-              </span>
-            ))}
-          </div>
-        )}
+          {servingsToday > 0 && (
+            <p className="mb-3 text-xs text-ink-soft">
+              Already logged today:{' '}
+              <span className="data font-semibold text-ink">{servingsToday}×</span>
+            </p>
+          )}
 
-        {/* The stepper sits directly above the label so the numbers visibly move. */}
-        <div className="mb-3 rounded-xl border border-rule bg-paper-raised p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-semibold">How much did you have?</span>
-            <span className="data text-sm">
-              {servings}× {recipe.serving_size ?? 'serving'}
-            </span>
-          </div>
+          {recipe.properties.length > 0 && (
+            <p className="mb-3 text-xs text-ink-soft">
+              {recipe.properties.map(propertyLabel).join(' · ')}
+            </p>
+          )}
 
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => step(-1)}
-              disabled={stepIndex <= 0}
-              aria-label="Less"
-              className="h-11 w-11 shrink-0 rounded-lg border border-rule text-xl disabled:opacity-40"
-            >
-              −
-            </button>
+          {/* The stepper sits directly above the label so the figures visibly move. */}
+          <div className="rule-top pt-2">
+            <div className="mb-2 flex items-baseline justify-between">
+              <span className="label">How much did you have</span>
+              <span className="data text-sm font-semibold">{servings}×</span>
+            </div>
 
-            <div className="no-scrollbar flex flex-1 gap-1.5 overflow-x-auto">
+            <div className="no-scrollbar flex gap-1.5 overflow-x-auto pb-1">
               {SERVING_STEPS.map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setServings(s)}
                   aria-pressed={s === servings}
-                  className={`data h-11 shrink-0 rounded-lg px-3 text-sm ${
+                  className={`data h-11 w-14 shrink-0 border text-sm ${
                     s === servings
-                      ? 'bg-navy text-paper-raised'
-                      : 'border border-rule text-ink-soft'
+                      ? 'border-carolina bg-carolina text-paper-raised'
+                      : 'border-rule text-ink-soft'
                   }`}
                 >
                   {s}×
                 </button>
               ))}
             </div>
-
-            <button
-              type="button"
-              onClick={() => step(1)}
-              disabled={stepIndex >= SERVING_STEPS.length - 1}
-              aria-label="More"
-              className="h-11 w-11 shrink-0 rounded-lg border border-rule text-xl disabled:opacity-40"
-            >
-              +
-            </button>
           </div>
+
+          <div className="mt-4">
+            <NutritionLabel recipe={recipe} servings={servings} />
+          </div>
+
+          {recipe.ingredients && (
+            <details className="mt-4 rule-top pt-2">
+              <summary className="label cursor-pointer">Ingredients</summary>
+              <p className="mt-2 text-xs leading-relaxed text-ink-soft">{recipe.ingredients}</p>
+            </details>
+          )}
+
+          {error && <p className="mt-3 text-sm font-medium text-danger">{error}</p>}
         </div>
 
-        <NutritionLabel recipe={recipe} servings={servings} />
-
-        {recipe.ingredients && (
-          <details className="mt-3 rounded-xl border border-rule bg-paper-raised p-3">
-            <summary className="cursor-pointer text-sm font-semibold">Ingredients</summary>
-            <p className="mt-2 text-xs leading-relaxed text-ink-soft">{recipe.ingredients}</p>
-          </details>
-        )}
-
-        {error && <p className="mt-3 text-sm font-medium text-danger">{error}</p>}
-
-        <div className="sticky bottom-0 mt-4 -mx-4 bg-paper px-4 pt-2">
+        <div className="sticky bottom-0 bg-paper px-4 pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {context.isSignedIn ? (
             <button
               type="button"
               onClick={handleLog}
               disabled={pending}
-              className="w-full rounded-xl bg-navy py-3.5 text-base font-semibold text-paper-raised disabled:opacity-60"
+              className="signage w-full bg-navy py-3.5 text-base text-paper-raised disabled:opacity-60"
             >
-              {pending ? 'Adding…' : `Add ${servings}× to today`}
+              {pending ? 'Adding…' : `Add ${servings}× to ${context.mealPeriodName ?? 'today'}`}
             </button>
           ) : (
             <a
               href="/login"
-              className="block w-full rounded-xl bg-navy py-3.5 text-center text-base font-semibold text-paper-raised"
+              className="signage block w-full bg-navy py-3.5 text-center text-base text-paper-raised"
             >
               Sign in to track this
             </a>

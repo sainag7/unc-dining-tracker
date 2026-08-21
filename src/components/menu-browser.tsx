@@ -1,57 +1,123 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { ItemSheet, type SheetContext } from './item-sheet';
-import {
-  FILTERABLE_PROPERTIES,
-  allergenLabel,
-  propertyLabel,
-  conflictingAllergens,
-} from '@/lib/labels';
+import { MenuRow } from './menu-row';
+import { logFood, removeLog } from '@/app/actions';
+import { FILTERABLE_PROPERTIES, propertyLabel } from '@/lib/labels';
+import { stationsToCollapse } from '@/lib/stations';
 import type { RecipeRow } from '@/lib/supabase/database.types';
 import type { StationWithItems } from '@/lib/menu';
+
+interface Added {
+  logId: number;
+  label: string;
+  recipeId: number;
+}
 
 export function MenuBrowser({
   stations,
   context,
   defaultFilters = [],
+  loggedServings,
+  usualIds = [],
 }: {
   stations: StationWithItems[];
   context: SheetContext;
-  /** Dietary preferences from the user's profile, pre-applied as Settings promises. */
+  /** Dietary preferences from the user's profile, pre-applied. */
   defaultFilters?: string[];
+  /** Servings already logged for the viewed date, by recipe id. */
+  loggedServings: Record<number, number>;
+  /** Recipe ids this user usually eats at this hall and meal period. */
+  usualIds?: number[];
 }) {
   const [query, setQuery] = useState('');
   const [activeProps, setActiveProps] = useState<string[]>(defaultFilters);
-  const [selected, setSelected] = useState<RecipeRow | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [justLogged, setJustLogged] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [detail, setDetail] = useState<RecipeRow | null>(null);
+  const [logged, setLogged] = useState<Record<number, number>>(loggedServings);
+  const [added, setAdded] = useState<Added | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
 
-  const filtered = useMemo(() => {
+  // Which stations start closed. Computed once per menu, then owned by the user.
+  const [closed, setClosed] = useState<Set<string>>(() => stationsToCollapse(stations));
+
+  const matchesFilters = useMemo(() => {
     const q = query.trim().toLowerCase();
+    return (item: RecipeRow) => {
+      if (q && !item.name.toLowerCase().includes(q)) return false;
+      return activeProps.every((p) => item.properties.includes(p));
+    };
+  }, [query, activeProps]);
 
-    return stations
-      .map((station) => ({
-        ...station,
-        items: station.items.filter((item) => {
-          if (q && !item.name.toLowerCase().includes(q)) return false;
-          return activeProps.every((p) => item.properties.includes(p));
-        }),
-      }))
-      .filter((station) => station.items.length > 0);
-  }, [stations, query, activeProps]);
+  const searching = query.trim() !== '';
 
-  const matchCount = filtered.reduce((n, s) => n + s.items.length, 0);
-  const isFiltering = query.trim() !== '' || activeProps.length > 0;
-
-  function toggleProp(prop: string) {
-    setActiveProps((current) =>
-      current.includes(prop) ? current.filter((p) => p !== prop) : [...current, prop],
+  /** Flat matches across every station, including closed ones. */
+  const searchResults = useMemo(() => {
+    if (!searching) return [];
+    return stations.flatMap((station) =>
+      station.items.filter(matchesFilters).map((item) => ({ item, station: station.name })),
     );
+  }, [searching, stations, matchesFilters]);
+
+  const visibleStations = useMemo(
+    () =>
+      stations
+        .map((s) => ({ ...s, items: s.items.filter(matchesFilters) }))
+        .filter((s) => s.items.length > 0),
+    [stations, matchesFilters],
+  );
+
+  const usuals = useMemo(() => {
+    if (usualIds.length === 0 || searching) return [];
+    const byId = new Map<number, RecipeRow>();
+    for (const station of stations) {
+      for (const item of station.items) if (!byId.has(item.id)) byId.set(item.id, item);
+    }
+    return usualIds.map((id) => byId.get(id)).filter((r): r is RecipeRow => Boolean(r));
+  }, [usualIds, stations, searching]);
+
+  function quickAdd(item: RecipeRow) {
+    setError(null);
+    // Move the count first; the write follows. A failure puts it back.
+    setLogged((current) => ({ ...current, [item.id]: (current[item.id] ?? 0) + 1 }));
+
+    startTransition(async () => {
+      const result = await logFood({
+        recipeId: item.id,
+        servings: 1,
+        serviceDate: context.serviceDate,
+        mealPeriodName: context.mealPeriodName,
+        hallId: context.hallId,
+      });
+
+      if (result.ok && result.logId) {
+        setAdded({ logId: result.logId, label: item.name, recipeId: item.id });
+      } else {
+        setLogged((current) => ({
+          ...current,
+          [item.id]: Math.max(0, (current[item.id] ?? 1) - 1),
+        }));
+        setError(result.error ?? 'Could not save that.');
+      }
+    });
+  }
+
+  function undo(entry: Added) {
+    setAdded(null);
+    setLogged((current) => ({
+      ...current,
+      [entry.recipeId]: Math.max(0, (current[entry.recipeId] ?? 1) - 1),
+    }));
+    startTransition(async () => {
+      const result = await removeLog(entry.logId);
+      if (!result.ok) setError(result.error ?? 'Could not undo that.');
+    });
   }
 
   function toggleStation(name: string) {
-    setCollapsed((current) => {
+    setClosed((current) => {
       const next = new Set(current);
       if (next.has(name)) next.delete(name);
       else next.add(name);
@@ -59,158 +125,257 @@ export function MenuBrowser({
     });
   }
 
+  const rowProps = (item: RecipeRow) => ({
+    item,
+    servings: logged[item.id] ?? 0,
+    allergensAvoid: context.allergensAvoid,
+    isSignedIn: context.isSignedIn,
+    onQuickAdd: () => quickAdd(item),
+    onOpenDetail: () => setDetail(item),
+  });
+
   return (
     <>
-      <div className="sticky top-0 z-20 border-b border-rule bg-paper/95 px-4 py-2 backdrop-blur">
-        <label className="sr-only" htmlFor="menu-search">
-          Search this menu
-        </label>
-        <input
-          id="menu-search"
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search this menu"
-          className="w-full rounded-lg border border-rule bg-paper-raised px-3 py-2 text-base placeholder:text-ink-faint"
-        />
-
-        <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto">
-          {FILTERABLE_PROPERTIES.map((prop) => {
-            const on = activeProps.includes(prop);
-            return (
-              <button
-                key={prop}
-                type="button"
-                onClick={() => toggleProp(prop)}
-                aria-pressed={on}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-medium ${
-                  on
-                    ? 'bg-navy text-paper-raised'
-                    : 'border border-rule bg-paper-raised text-ink-soft'
-                }`}
-              >
-                {propertyLabel(prop)}
-              </button>
-            );
-          })}
-          {isFiltering && (
-            <button
-              type="button"
-              onClick={() => {
-                setQuery('');
-                setActiveProps([]);
-              }}
-              className="shrink-0 rounded-full px-3 py-1.5 text-sm text-ink-soft underline"
-            >
-              Clear
-            </button>
-          )}
+      <div className="sticky top-0 z-20 border-b border-rule bg-paper/95 px-4 pt-2 pb-1 backdrop-blur">
+        <div className="flex items-baseline gap-3">
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search this menu"
+            aria-label="Search this menu"
+            className="field-underline min-w-0 flex-1 text-[0.9375rem] placeholder:text-ink-faint"
+          />
+          <button
+            type="button"
+            onClick={() => setShowFilters(true)}
+            className="shrink-0 pb-2 text-xs text-carolina"
+          >
+            Filters{activeProps.length > 0 ? ` (${activeProps.length})` : ''}
+          </button>
         </div>
 
-        {isFiltering && (
-          <p className="mt-1.5 text-xs text-ink-soft" role="status">
-            {matchCount} {matchCount === 1 ? 'item' : 'items'} match
+        {activeProps.length > 0 && (
+          <p className="mt-1 text-xs text-ink-soft">
+            Showing {activeProps.map(propertyLabel).join(' · ')} only
           </p>
         )}
       </div>
 
-      {justLogged && (
-        <p
+      {(added || error) && (
+        <div
           role="status"
-          className="mx-4 mt-3 rounded-lg border border-carolina bg-carolina/10 px-3 py-2 text-sm font-medium text-navy"
+          className="mx-4 mt-2 flex items-center justify-between gap-3 border-b border-rule pb-2 text-sm"
         >
-          Added {justLogged}.
-        </p>
+          {error ? (
+            <span className="font-medium text-danger">{error}</span>
+          ) : (
+            <>
+              <span className="min-w-0 truncate">
+                Added <span className="font-semibold">{added!.label}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => undo(added!)}
+                className="shrink-0 text-carolina underline underline-offset-2"
+              >
+                Undo
+              </button>
+            </>
+          )}
+        </div>
       )}
 
-      {filtered.length === 0 ? (
-        <div className="px-4 py-16 text-center">
-          <p className="signage text-xl text-ink-soft">Nothing matches</p>
-          <p className="mt-1 text-sm text-ink-soft">
-            Try a different search, or clear your filters to see the whole menu.
-          </p>
-        </div>
-      ) : (
-        <div className="px-4 pb-32">
-          {filtered.map((station) => {
-            const isCollapsed = collapsed.has(station.name);
-            return (
-              <section key={station.name} className="mt-5">
-                <button
-                  type="button"
-                  onClick={() => toggleStation(station.name)}
-                  aria-expanded={!isCollapsed}
-                  className="flex w-full items-baseline justify-between gap-3 border-b-2 border-rule-strong pb-1 text-left"
-                >
-                  <h2 className="signage text-lg">{station.name}</h2>
-                  <span className="data shrink-0 text-xs text-ink-soft">
-                    {station.items.length} {isCollapsed ? '▸' : '▾'}
-                  </span>
-                </button>
-
-                {!isCollapsed && (
-                  <ul>
-                    {station.items.map((item, i) => {
-                      const conflicts = conflictingAllergens(
-                        item.allergens,
-                        context.allergensAvoid,
-                      );
-                      return (
-                        <li key={`${item.id}-${i}`}>
-                          <button
-                            type="button"
-                            onClick={() => setSelected(item)}
-                            className="flex w-full items-center justify-between gap-3 border-b border-rule py-2.5 text-left hover:bg-paper-sunk"
-                          >
-                            <span className="min-w-0">
-                              <span className="block truncate text-[15px] leading-snug">
-                                {item.name}
-                              </span>
-                              <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                                {conflicts.length > 0 && (
-                                  <span className="text-xs font-semibold text-danger">
-                                    ⚠ {conflicts.map(allergenLabel).join(', ')}
-                                  </span>
-                                )}
-                                {item.properties.slice(0, 3).map((p) => (
-                                  <span key={p} className="text-xs text-ink-soft">
-                                    {propertyLabel(p)}
-                                  </span>
-                                ))}
-                              </span>
-                            </span>
-
-                            <span className="shrink-0 text-right">
-                              <span className="data block text-base font-semibold leading-none">
-                                {item.calories === null ? '—' : Math.round(item.calories)}
-                              </span>
-                              <span className="text-[10px] uppercase tracking-wide text-ink-faint">
-                                cal
-                              </span>
-                            </span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
+      <div className="px-4" style={{ paddingBottom: 'calc(var(--tab-bar-h) + 3rem)' }}>
+        {searching ? (
+          searchResults.length === 0 ? (
+            <EmptyState
+              title="No matches"
+              body={`Nothing on this menu matches “${query.trim()}”.`}
+            />
+          ) : (
+            <section className="mt-4">
+              <SectionHead title="Results" count={searchResults.length} />
+              <ul>
+                {searchResults.map(({ item, station }, i) => (
+                  <MenuRow key={`${item.id}-${i}`} {...rowProps(item)} stationLabel={station} />
+                ))}
+              </ul>
+            </section>
+          )
+        ) : (
+          <>
+            {usuals.length > 0 && (
+              <section className="mt-4">
+                <SectionHead title="Your usuals" count={usuals.length} />
+                <ul>
+                  {usuals.map((item) => (
+                    <MenuRow key={`usual-${item.id}`} {...rowProps(item)} />
+                  ))}
+                </ul>
               </section>
-            );
-          })}
-        </div>
+            )}
+
+            {visibleStations.length === 0 ? (
+              <EmptyState
+                title="Nothing matches"
+                body="Clear your filters to see the whole menu."
+              />
+            ) : (
+              visibleStations.map((station) => {
+                const isClosed = closed.has(station.name);
+                return (
+                  <section key={station.name} className="mt-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleStation(station.name)}
+                      aria-expanded={!isClosed}
+                      className="flex w-full items-baseline justify-between gap-3 rule-top pt-1.5 pb-1 text-left"
+                    >
+                      <h2 className="signage text-[0.9375rem]">{station.name}</h2>
+                      <span className="data shrink-0 text-xs text-ink-soft">
+                        {station.items.length}
+                        <span className="ml-1.5 text-ink-faint">
+                          {isClosed ? 'show' : 'hide'}
+                        </span>
+                      </span>
+                    </button>
+
+                    {!isClosed && (
+                      <ul>
+                        {station.items.map((item, i) => (
+                          <MenuRow key={`${item.id}-${i}`} {...rowProps(item)} />
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                );
+              })
+            )}
+          </>
+        )}
+      </div>
+
+      {showFilters && (
+        <FilterSheet
+          active={activeProps}
+          onToggle={(prop) =>
+            setActiveProps((current) =>
+              current.includes(prop)
+                ? current.filter((p) => p !== prop)
+                : [...current, prop],
+            )
+          }
+          onClear={() => setActiveProps([])}
+          onClose={() => setShowFilters(false)}
+        />
       )}
 
-      {selected && (
+      {detail && (
         <ItemSheet
-          recipe={selected}
+          recipe={detail}
           context={context}
-          onClose={() => setSelected(null)}
-          onLogged={(recipe, servings) => {
-            setJustLogged(`${servings}× ${recipe.name}`);
-            window.setTimeout(() => setJustLogged(null), 4000);
+          servingsToday={logged[detail.id] ?? 0}
+          onClose={() => setDetail(null)}
+          onLogged={(recipe, servings, logId) => {
+            setLogged((current) => ({
+              ...current,
+              [recipe.id]: (current[recipe.id] ?? 0) + servings,
+            }));
+            if (logId) setAdded({ logId, label: recipe.name, recipeId: recipe.id });
           }}
         />
       )}
     </>
+  );
+}
+
+function SectionHead({ title, count }: { title: string; count: number }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 rule-top pt-1.5 pb-1">
+      <h2 className="signage text-[0.9375rem]">{title}</h2>
+      <span className="data shrink-0 text-xs text-ink-soft">{count}</span>
+    </div>
+  );
+}
+
+function EmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="py-16 text-center">
+      <p className="signage text-lg text-ink-soft">{title}</p>
+      <p className="mx-auto mt-1 max-w-xs text-sm text-ink-soft">{body}</p>
+    </div>
+  );
+}
+
+function FilterSheet({
+  active,
+  onToggle,
+  onClear,
+  onClose,
+}: {
+  active: string[];
+  onToggle: (prop: string) => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+      <button
+        type="button"
+        aria-label="Close filters"
+        onClick={onClose}
+        className="absolute inset-0 bg-ink/50"
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Filters"
+        className="relative w-full max-w-lg bg-paper p-4 pb-8 shadow-[var(--shadow-sheet)]"
+      >
+        <div className="flex items-baseline justify-between rule-top pt-2">
+          <h2 className="signage text-lg">Filters</h2>
+          <button type="button" onClick={onClose} className="text-sm text-carolina">
+            Done
+          </button>
+        </div>
+
+        <ul className="mt-2">
+          {FILTERABLE_PROPERTIES.map((prop) => {
+            const on = active.includes(prop);
+            return (
+              <li key={prop}>
+                <button
+                  type="button"
+                  onClick={() => onToggle(prop)}
+                  aria-pressed={on}
+                  className="flex w-full items-center justify-between border-b border-rule py-3 text-left"
+                >
+                  <span className="text-[0.9375rem]">{propertyLabel(prop)}</span>
+                  <span
+                    aria-hidden
+                    className={`flex h-6 w-6 items-center justify-center border ${
+                      on ? 'border-carolina bg-carolina text-paper-raised' : 'border-rule-strong'
+                    }`}
+                  >
+                    {on ? '✓' : ''}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+
+        {active.length > 0 && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="mt-3 text-sm text-carolina underline underline-offset-2"
+          >
+            Clear all filters
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

@@ -1,0 +1,114 @@
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import {
+  getDayLog,
+  getProfile,
+  getTotalsByDate,
+  totalsFor,
+  currentStreak,
+} from '@/lib/log';
+import { campusToday, addDays } from '@/lib/dates';
+import { DaySummary } from '@/components/day-summary';
+import { WeekStrip } from '@/components/week-strip';
+import { LogList } from '@/components/log-list';
+
+const HISTORY_DAYS = 30;
+
+function formatDate(isoDate: string): string {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+export default async function LogPage(props: PageProps<'/log'>) {
+  const searchParams = await props.searchParams;
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect('/login');
+
+  const today = campusToday();
+  const raw = searchParams.date;
+  const date = (Array.isArray(raw) ? raw[0] : raw) ?? today;
+
+  const [log, profile, totalsByDate] = await Promise.all([
+    getDayLog(supabase, user.id, date),
+    getProfile(supabase, user.id),
+    getTotalsByDate(supabase, user.id, addDays(today, -(HISTORY_DAYS - 1)), today),
+  ]);
+
+  const loggedDates = new Set(totalsByDate.keys());
+  const streak = currentStreak(loggedDates, today);
+
+  const daysWithEntries = [...totalsByDate.values()];
+  const average =
+    daysWithEntries.length > 0
+      ? Math.round(
+          daysWithEntries.reduce((n, t) => n + t.calories, 0) / daysWithEntries.length,
+        )
+      : 0;
+
+  return (
+    <>
+      <header className="px-4 pt-3">
+        <div className="flex items-end justify-between gap-3 border-b-2 border-rule-strong pb-1.5">
+          <div className="min-w-0">
+            <h1 className="signage truncate text-[2rem] leading-none">
+              {date === today ? 'Today' : formatDate(date).split(',')[0]}
+            </h1>
+            <p className="data mt-1 text-xs text-ink-soft">{formatDate(date)}</p>
+          </div>
+          <Link
+            href="/settings"
+            className="shrink-0 pb-0.5 text-xs text-carolina"
+            aria-label="Settings"
+          >
+            Settings
+          </Link>
+        </div>
+
+        <div className="mt-2">
+          <WeekStrip selected={date} today={today} loggedDates={loggedDates} />
+        </div>
+      </header>
+
+      <main
+        className="flex-1 px-4"
+        style={{ paddingBottom: 'calc(var(--tab-bar-h) + 2rem)' }}
+      >
+        <div className="mt-4">
+          <DaySummary
+            totals={totalsFor(log)}
+            calorieGoal={profile?.calorie_goal ?? 2000}
+            proteinGoal={profile?.protein_goal_g ?? 150}
+            carbGoal={profile?.carb_goal_g ?? 250}
+            fatGoal={profile?.fat_goal_g ?? 65}
+          />
+        </div>
+
+        {daysWithEntries.length > 0 && (
+          <p className="mt-3 border-t border-rule pt-2 text-xs text-ink-soft">
+            <span className="data font-semibold text-ink">{streak}</span>
+            {streak === 1 ? ' day streak' : ' day streak'}
+            <span className="mx-2 text-ink-faint">·</span>
+            <span className="data font-semibold text-ink">
+              {average.toLocaleString()}
+            </span>{' '}
+            cal average over {daysWithEntries.length}{' '}
+            {daysWithEntries.length === 1 ? 'day' : 'days'}
+          </p>
+        )}
+
+        <LogList entries={log} />
+      </main>
+    </>
+  );
+}

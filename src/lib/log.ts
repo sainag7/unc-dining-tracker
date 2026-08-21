@@ -71,6 +71,93 @@ export async function getDayLog(
   }));
 }
 
+/**
+ * Total servings logged per recipe on a date, so menu rows can show what's
+ * already been added today without a second round trip per row.
+ */
+export async function getLoggedServingsByRecipe(
+  db: Db,
+  userId: string,
+  serviceDate: string,
+): Promise<Map<number, number>> {
+  const { data, error } = await db
+    .from('food_log')
+    .select('recipe_id, servings')
+    .eq('user_id', userId)
+    .eq('service_date', serviceDate);
+
+  if (error) throw new Error(`Failed to load today's log: ${error.message}`);
+
+  const byRecipe = new Map<number, number>();
+  for (const row of data ?? []) {
+    byRecipe.set(row.recipe_id, (byRecipe.get(row.recipe_id) ?? 0) + row.servings);
+  }
+  return byRecipe;
+}
+
+/**
+ * Orders past picks by how often they were logged, keeping only what's on the
+ * menu right now. Ties break toward the more recent pick, so a habit that's
+ * been dropped drifts down the list.
+ *
+ * Pure so the ranking can be tested without a database.
+ */
+export function rankUsuals(
+  rows: Array<{ recipe_id: number; logged_at: string }>,
+  onMenu: Set<number>,
+  limit = 8,
+): number[] {
+  const stats = new Map<number, { count: number; last: string }>();
+
+  for (const row of rows) {
+    if (!onMenu.has(row.recipe_id)) continue;
+    const current = stats.get(row.recipe_id);
+    if (current) {
+      current.count++;
+      if (row.logged_at > current.last) current.last = row.logged_at;
+    } else {
+      stats.set(row.recipe_id, { count: 1, last: row.logged_at });
+    }
+  }
+
+  return [...stats.entries()]
+    .sort((a, b) => b[1].count - a[1].count || b[1].last.localeCompare(a[1].last))
+    .slice(0, limit)
+    .map(([recipeId]) => recipeId);
+}
+
+/**
+ * What this user usually eats at this hall and meal period.
+ *
+ * Scoped to the last 90 days so a habit from last semester doesn't outrank
+ * this month's, and intersected with the current menu so nothing unservable
+ * is suggested.
+ */
+export async function getUsualRecipeIds(
+  db: Db,
+  userId: string,
+  hallId: number,
+  mealPeriodName: string,
+  onMenu: Set<number>,
+  limit = 8,
+): Promise<number[]> {
+  if (onMenu.size === 0) return [];
+
+  const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const { data, error } = await db
+    .from('food_log')
+    .select('recipe_id, logged_at')
+    .eq('user_id', userId)
+    .eq('hall_id', hallId)
+    .eq('meal_period_name', mealPeriodName)
+    .gte('service_date', since);
+
+  if (error) throw new Error(`Failed to load usuals: ${error.message}`);
+
+  return rankUsuals(data ?? [], onMenu, limit);
+}
+
 export async function getProfile(db: Db, userId: string): Promise<ProfileRow | null> {
   const { data } = await db.from('profiles').select('*').eq('id', userId).maybeSingle();
   return data ?? null;

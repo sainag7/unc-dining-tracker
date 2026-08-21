@@ -30,35 +30,30 @@ function EntryRow({ entry }: { entry: LogEntry }) {
 
   return (
     <li className={`border-b border-rule py-2.5 ${pending ? 'opacity-50' : ''}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[15px] leading-snug">{entry.recipeName}</p>
-          <p className="text-xs text-ink-soft">
+      <button
+        type="button"
+        onClick={() => setEditing(!editing)}
+        aria-expanded={editing}
+        className="flex w-full items-start justify-between gap-3 text-left"
+      >
+        <span className="min-w-0">
+          <span className="block text-[0.9375rem] leading-snug">{entry.recipeName}</span>
+          <span className="mt-0.5 block truncate text-xs text-ink-faint">
             <span className="data">{entry.servings}×</span>
             {entry.servingSize ? ` ${entry.servingSize}` : ' serving'}
-            {entry.hallName ? ` · ${entry.hallName.replace(' Dining Hall', '')}` : ''}
-          </p>
-        </div>
+            {entry.hallName ? ` · ${entry.hallName.replace(/\s*dining hall\s*/i, '')}` : ''}
+          </span>
+        </span>
 
-        <div className="flex shrink-0 items-center gap-2">
-          <div className="text-right">
-            <span className="data block text-base font-semibold leading-none">{calories}</span>
-            <span className="data text-[10px] text-ink-faint">{protein}g P</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setEditing(!editing)}
-            aria-expanded={editing}
-            className="rounded-lg border border-rule px-2 py-1 text-xs text-ink-soft"
-          >
-            Edit
-          </button>
-        </div>
-      </div>
+        <span className="shrink-0 text-right">
+          <span className="data block text-sm font-semibold leading-none">{calories}</span>
+          <span className="data mt-0.5 block text-[10px] text-ink-faint">{protein}g P</span>
+        </span>
+      </button>
 
       {editing && (
-        <div className="mt-2 rounded-lg bg-paper-sunk p-2">
-          <div className="no-scrollbar flex gap-1.5 overflow-x-auto">
+        <div className="mt-2">
+          <div className="no-scrollbar flex gap-1.5 overflow-x-auto pb-1">
             {SERVING_STEPS.map((s) => (
               <button
                 key={s}
@@ -66,10 +61,10 @@ function EntryRow({ entry }: { entry: LogEntry }) {
                 onClick={() => change(s)}
                 disabled={pending}
                 aria-pressed={s === entry.servings}
-                className={`data h-9 shrink-0 rounded-lg px-3 text-sm ${
+                className={`data h-10 w-13 shrink-0 border px-3 text-sm ${
                   s === entry.servings
-                    ? 'bg-navy text-paper-raised'
-                    : 'border border-rule bg-paper-raised text-ink-soft'
+                    ? 'border-carolina bg-carolina text-paper-raised'
+                    : 'border-rule text-ink-soft'
                 }`}
               >
                 {s}×
@@ -80,9 +75,9 @@ function EntryRow({ entry }: { entry: LogEntry }) {
             type="button"
             onClick={remove}
             disabled={pending}
-            className="mt-2 text-sm font-medium text-danger underline"
+            className="mt-2 text-xs text-danger underline underline-offset-2"
           >
-            Remove from today
+            Remove
           </button>
         </div>
       )}
@@ -99,16 +94,16 @@ function EntryRow({ entry }: { entry: LogEntry }) {
 export function LogList({ entries }: { entries: LogEntry[] }) {
   if (entries.length === 0) {
     return (
-      <div className="px-4 py-14 text-center">
-        <p className="signage text-xl text-ink-soft">Nothing logged yet</p>
+      <div className="py-16 text-center">
+        <p className="signage text-lg text-ink-soft">Nothing logged</p>
         <p className="mx-auto mt-1 max-w-xs text-sm text-ink-soft">
-          Open the menu and tap what you ate. It&rsquo;ll show up here.
+          Open Menus and tap the <span aria-hidden>+</span> next to anything you ate.
         </p>
         <Link
           href="/"
-          className="mt-4 inline-block rounded-xl bg-navy px-5 py-2.5 text-sm font-semibold text-paper-raised"
+          className="signage mt-5 inline-block bg-navy px-6 py-2.5 text-sm text-paper-raised"
         >
-          Go to the menu
+          Go to menus
         </Link>
       </div>
     );
@@ -123,17 +118,16 @@ export function LogList({ entries }: { entries: LogEntry[] }) {
   }
 
   return (
-    <div className="px-4">
+    <div>
       {[...groups].map(([period, items]) => {
-        const subtotal = items.reduce(
-          (n, e) => n + (e.calories_snapshot ?? 0) * e.servings,
-          0,
-        );
+        const subtotal = items.reduce((n, e) => n + (e.calories_snapshot ?? 0) * e.servings, 0);
         return (
           <section key={period} className="mt-5">
-            <div className="flex items-baseline justify-between border-b-2 border-rule-strong pb-1">
-              <h2 className="signage text-lg">{period}</h2>
-              <span className="data text-xs text-ink-soft">{Math.round(subtotal)} cal</span>
+            <div className="flex items-baseline justify-between gap-3 rule-top pt-1.5 pb-1">
+              <h2 className="signage text-[0.9375rem]">{period}</h2>
+              <span className="data shrink-0 text-xs text-ink-soft">
+                {Math.round(subtotal)} cal
+              </span>
             </div>
             <ul>
               {items.map((entry) => (

@@ -1,61 +1,70 @@
 @import 'tailwindcss';
 
 /*
-  Design direction: "the dining hall, not the fitness app."
-  Station signage sets the type, UNC's own blue and navy set the structure, and
-  the nutrition label — a real artifact of this subject — is the one place the
-  design gets loud.
+  Menu board.
+
+  The reference is the printed board above a serving line: type and rules do
+  the work, not boxes. Sections divide with hairlines and space. Almost nothing
+  is a rounded card — the exceptions are things that genuinely are cards (the
+  nutrition panel, the item sheet) and controls that need to read as tappable.
+
+  Colour carries exactly three meanings and nothing else:
+    carolina — interactive
+    serving  — being served right now
+    danger   — an allergen you asked to avoid
 */
 
 :root {
-  --paper: #f1f0eb;
-  --paper-raised: #ffffff;
-  --paper-sunk: #e7e5de;
+  --paper: #f2f0ea;
+  --paper-raised: #fbfaf7;
+  --paper-sunk: #e6e3da;
 
-  --ink: #16212b;
-  --ink-soft: #5b6773;
-  --ink-faint: #8d97a1;
+  --ink: #14202a;
+  --ink-soft: #58646f;
+  --ink-faint: #8b95a0;
 
-  --rule: #d7d5cd;
-  --rule-strong: #16212b;
+  /* Hairlines between rows; rule-strong divides sections. */
+  --rule: #d5d2c8;
+  --rule-strong: #14202a;
 
-  /* UNC's actual palette — institutional, not decorative. */
-  --carolina: #4b9cd3;
+  --carolina: #2b7fb8;
   --navy: #13294b;
 
-  /* Warm amber reads as "hot food on the line right now". */
-  --serving: #b87407;
-  --serving-bg: #fdf3e0;
+  --serving: #a8620a;
+  --serving-bg: #f6ead6;
 
-  --danger: #b3261e;
-  --danger-bg: #fdeceb;
+  --danger: #a8221b;
+  --danger-bg: #f7e5e3;
 
-  --shadow-sheet: 0 -8px 40px rgb(22 33 43 / 0.16);
+  --shadow-sheet: 0 -10px 44px rgb(20 32 42 / 0.18);
+
+  /* Height of the fixed tab bar, so pages can clear it. */
+  --tab-bar-h: 3.75rem;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #0f151b;
-    --paper-raised: #182029;
-    --paper-sunk: #0a0f14;
+    --paper: #0e141a;
+    --paper-raised: #161e26;
+    --paper-sunk: #080c11;
 
-    --ink: #e9ebe7;
-    --ink-soft: #9aa5b0;
-    --ink-faint: #6b7681;
+    --ink: #eaece8;
+    --ink-soft: #9ba6b1;
+    --ink-faint: #6a747f;
 
-    --rule: #2a3540;
-    --rule-strong: #4a5764;
+    --rule: #29333d;
+    --rule-strong: #7e8a96;
 
-    --carolina: #6bb4e4;
-    --navy: #a9c3e6;
+    --carolina: #6cb6e6;
+    --navy: #b9cee9;
 
-    --serving: #e5a542;
-    --serving-bg: #2b2115;
+    --serving: #e8ab4c;
+    --serving-bg: #2a2014;
 
-    --danger: #f2857c;
-    --danger-bg: #2d1614;
+    --danger: #f0897f;
+    --danger-bg: #2c1513;
 
-    --shadow-sheet: 0 -8px 40px rgb(0 0 0 / 0.5);
+    --shadow-sheet: 0 -10px 44px rgb(0 0 0 / 0.55);
   }
 }
 
@@ -84,29 +93,57 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-sans);
-  /* The bottom bar is fixed; keep content clear of it and of the home indicator. */
-  padding-bottom: env(safe-area-inset-bottom);
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Station names are signage: condensed, uppercase, tightly tracked. */
+/*
+  Signage: station names and headers, set the way a board sets them —
+  condensed, uppercase, tracked open just enough to stay legible small.
+*/
 .signage {
   font-family: var(--font-display);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   font-weight: 700;
+  line-height: 1.05;
 }
 
-/* Any figure the user compares against another figure gets tabular numerals. */
+/* Every figure the reader compares to another figure. Tabular so columns align. */
 .data {
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
 }
 
-/* Keyboard focus stays visible everywhere; never trade it for tidiness. */
+/* Small caps-ish label used for eyebrows and units. */
+.label {
+  font-size: 0.6875rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* The heavy rule that opens a section, echoing a board's header bar. */
+.rule-top {
+  border-top: 2px solid var(--rule-strong);
+}
+
+/* Search field: an underline, not a box. */
+.field-underline {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--rule-strong);
+  border-radius: 0;
+  padding: 0.5rem 0;
+}
+.field-underline:focus {
+  outline: none;
+  border-bottom-width: 2px;
+}
+
 :focus-visible {
   outline: 2px solid var(--carolina);
   outline-offset: 2px;
-  border-radius: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -120,7 +157,6 @@ body {
   }
 }
 
-/* Horizontal tab strips scroll without advertising a scrollbar. */
 .no-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;

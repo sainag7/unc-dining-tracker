@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { totalsFor, currentStreak } from './log';
+import { totalsFor, currentStreak, rankUsuals } from './log';
 
 const entry = (
   servings: number,
@@ -71,5 +71,41 @@ describe('currentStreak', () => {
   it('walks across a month boundary', () => {
     const dates = new Set(['2026-07-30', '2026-07-31', '2026-08-01']);
     expect(currentStreak(dates, '2026-08-01')).toBe(3);
+  });
+});
+
+describe('rankUsuals', () => {
+  const onMenu = new Set([1, 2, 3]);
+  const row = (recipe_id: number, logged_at: string) => ({ recipe_id, logged_at });
+
+  it('orders by how often something was logged', () => {
+    const rows = [
+      row(1, '2026-08-01T12:00:00Z'),
+      row(2, '2026-08-01T12:00:00Z'),
+      row(2, '2026-08-02T12:00:00Z'),
+      row(2, '2026-08-03T12:00:00Z'),
+      row(3, '2026-08-01T12:00:00Z'),
+      row(3, '2026-08-02T12:00:00Z'),
+    ];
+    expect(rankUsuals(rows, onMenu)).toEqual([2, 3, 1]);
+  });
+
+  it('drops picks that are not on the menu right now', () => {
+    const rows = [row(99, '2026-08-01T12:00:00Z'), row(1, '2026-08-01T12:00:00Z')];
+    expect(rankUsuals(rows, onMenu)).toEqual([1]);
+  });
+
+  it('breaks ties toward the more recent pick', () => {
+    const rows = [row(1, '2026-08-01T12:00:00Z'), row(2, '2026-08-09T12:00:00Z')];
+    expect(rankUsuals(rows, onMenu)).toEqual([2, 1]);
+  });
+
+  it('respects the limit', () => {
+    const rows = [row(1, '2026-08-01T12:00:00Z'), row(2, '2026-08-01T12:00:00Z')];
+    expect(rankUsuals(rows, onMenu, 1)).toHaveLength(1);
+  });
+
+  it('returns nothing when there is no history', () => {
+    expect(rankUsuals([], onMenu)).toEqual([]);
   });
 });

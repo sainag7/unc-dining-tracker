@@ -9,6 +9,11 @@ export interface ActionResult {
   error?: string;
 }
 
+export interface LogResult extends ActionResult {
+  /** Id of the row just written, so the caller can offer an undo. */
+  logId?: number;
+}
+
 const NOT_SIGNED_IN = 'Sign in to keep track of what you eat.';
 
 /**
@@ -23,7 +28,7 @@ export async function logFood(input: {
   serviceDate?: string;
   mealPeriodName?: string | null;
   hallId?: number | null;
-}): Promise<ActionResult> {
+}): Promise<LogResult> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -44,24 +49,28 @@ export async function logFood(input: {
 
   if (!recipe) return { ok: false, error: "That item isn't on the menu any more." };
 
-  const { error } = await supabase.from('food_log').insert({
-    user_id: user.id,
-    recipe_id: recipe.id,
-    service_date: input.serviceDate ?? campusToday(),
-    meal_period_name: input.mealPeriodName ?? null,
-    hall_id: input.hallId ?? null,
-    servings,
-    calories_snapshot: recipe.calories,
-    protein_snapshot: recipe.protein_g,
-    carbs_snapshot: recipe.carbs_g,
-    fat_snapshot: recipe.fat_g,
-  });
+  const { data: inserted, error } = await supabase
+    .from('food_log')
+    .insert({
+      user_id: user.id,
+      recipe_id: recipe.id,
+      service_date: input.serviceDate ?? campusToday(),
+      meal_period_name: input.mealPeriodName ?? null,
+      hall_id: input.hallId ?? null,
+      servings,
+      calories_snapshot: recipe.calories,
+      protein_snapshot: recipe.protein_g,
+      carbs_snapshot: recipe.carbs_g,
+      fat_snapshot: recipe.fat_g,
+    })
+    .select('id')
+    .single();
 
   if (error) return { ok: false, error: `Could not save that: ${error.message}` };
 
-  revalidatePath('/');
-  revalidatePath('/dashboard');
-  return { ok: true };
+  // 'layout' so the tab bar's running total refreshes along with the pages.
+  revalidatePath('/', 'layout');
+  return { ok: true, logId: inserted?.id };
 }
 
 export async function updateServings(logId: number, servings: number): Promise<ActionResult> {
@@ -85,7 +94,7 @@ export async function updateServings(logId: number, servings: number): Promise<A
 
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/dashboard');
+  revalidatePath('/', 'layout');
   return { ok: true };
 }
 
@@ -105,7 +114,7 @@ export async function removeLog(logId: number): Promise<ActionResult> {
 
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/dashboard');
+  revalidatePath('/', 'layout');
   return { ok: true };
 }
 
