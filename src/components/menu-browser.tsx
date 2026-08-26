@@ -5,7 +5,7 @@ import { ItemSheet, type SheetContext } from './item-sheet';
 import { MenuRow } from './menu-row';
 import { logFood, removeLog } from '@/app/actions';
 import { FILTERABLE_PROPERTIES, propertyLabel } from '@/lib/labels';
-import { stationsToCollapse } from '@/lib/stations';
+import { orderStations, stationsToCollapse } from '@/lib/stations';
 import type { RecipeRow } from '@/lib/supabase/database.types';
 import type { StationWithItems } from '@/lib/menu';
 
@@ -16,7 +16,7 @@ interface Added {
 }
 
 export function MenuBrowser({
-  stations,
+  stations: rawStations,
   context,
   defaultFilters = [],
   loggedServings,
@@ -31,6 +31,10 @@ export function MenuBrowser({
   /** Recipe ids this user usually eats at this hall and meal period. */
   usualIds?: number[];
 }) {
+  // Main courses lead, component bars sink. Done once, before filtering, so
+  // search results and station groups share the same sequence.
+  const stations = useMemo(() => orderStations(rawStations), [rawStations]);
+
   const [query, setQuery] = useState('');
   const [activeProps, setActiveProps] = useState<string[]>(defaultFilters);
   const [showFilters, setShowFilters] = useState(false);

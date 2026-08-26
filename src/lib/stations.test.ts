@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stationsToCollapse } from './stations';
+import { orderStations, stationsToCollapse } from './stations';
 import type { StationWithItems } from './menu';
 import type { RecipeRow } from './supabase/database.types';
 
@@ -111,5 +111,60 @@ describe('stationsToCollapse', () => {
 
   it('handles an empty menu', () => {
     expect(stationsToCollapse([]).size).toBe(0);
+  });
+});
+
+describe('orderStations', () => {
+  const ordered = orderStations(chaseDinner);
+  const names = ordered.map((s) => s.name);
+  const at = (name: string) => names.indexOf(name);
+
+  it('leads with the stations people actually queue for', () => {
+    // UNC's own order opens on Waffle Bar and Ice Cream; Simply Prepared sits
+    // fourteen stations down. It should lead now.
+    expect(names[0]).toBe('Simply Prepared');
+    expect(names[1]).toBe('Simply Prepared Griddle');
+  });
+
+  it('keeps the two Simply Prepared stations adjacent and in menu order', () => {
+    expect(at('Simply Prepared Griddle')).toBe(at('Simply Prepared') + 1);
+  });
+
+  it('puts every main course above the sides', () => {
+    const lastMain = Math.max(
+      ...['Simply Prepared', 'Pizza', 'Pasta', 'Sushi/Create', 'Made-to-Order'].map(at),
+    );
+    for (const side of ['Waffle Bar', 'Ice Cream', 'Bakery']) {
+      expect(at(side)).toBeGreaterThan(lastMain);
+    }
+  });
+
+  it('sinks the component bars to the bottom', () => {
+    const firstBar = Math.min(...['Salad Bar', 'Deli', 'Beverages'].map(at));
+    for (const dish of ['Simply Prepared', 'Pizza', 'Waffle Bar', 'Ice Cream']) {
+      expect(at(dish)).toBeLessThan(firstBar);
+    }
+  });
+
+  it('loses nothing and duplicates nothing', () => {
+    expect(ordered).toHaveLength(chaseDinner.length);
+    expect(new Set(names).size).toBe(chaseDinner.length);
+  });
+
+  it('does not mutate the menu it was given', () => {
+    const before = chaseDinner.map((s) => s.name);
+    orderStations(chaseDinner);
+    expect(chaseDinner.map((s) => s.name)).toEqual(before);
+  });
+
+  it('keeps a main course open even when it lists a lot of items', () => {
+    // The size rule must not sink a station people actually eat from.
+    const big = [station('Made-to-Order', 30), station('Salad Bar', 40)];
+    expect(orderStations(big)[0].name).toBe('Made-to-Order');
+    expect(stationsToCollapse(big).has('Made-to-Order')).toBe(false);
+  });
+
+  it('handles an empty menu', () => {
+    expect(orderStations([])).toEqual([]);
   });
 });
