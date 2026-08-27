@@ -72,9 +72,9 @@ export default async function MenusPage(props: PageProps<'/'>) {
 
       <main className="flex-1">
         {periods.length === 0 ? (
-          <div className="px-6 py-20 text-center">
-            <p className="signage text-xl">No menu posted</p>
-            <p className="mx-auto mt-2 max-w-sm text-sm text-ink-soft">
+          <div className="mx-auto w-full max-w-[640px] px-6 py-20 text-center">
+            <p className="text-input font-semibold">No menu posted</p>
+            <p className="mx-auto mt-2 max-w-sm text-body text-text-muted">
               UNC hasn&rsquo;t published this day yet, or the hall isn&rsquo;t serving. Menus
               usually appear about a week ahead — try another date.
             </p>

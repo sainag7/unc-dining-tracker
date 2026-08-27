@@ -49,7 +49,7 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
     unit: string,
   ) => (
     <div>
-      <label htmlFor={id} className="mb-1 block text-sm font-medium">
+      <label htmlFor={id} className="mb-1 block text-body font-medium">
         {label}
       </label>
       <div className="flex items-center gap-2">
@@ -60,9 +60,9 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
           min={1}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="data field-underline w-full text-base"
+          className="data field-underline w-full text-input"
         />
-        <span className="w-8 text-sm text-ink-soft">{unit}</span>
+        <span className="w-8 text-body text-text-muted">{unit}</span>
       </div>
     </div>
   );
@@ -70,7 +70,7 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       <section>
-        <h2 className="signage rule-top pt-1.5 pb-1 text-[0.9375rem]">Daily goals</h2>
+        <h2 className="placard border-b border-text py-2">Daily goals</h2>
         <div className="mt-3 grid grid-cols-2 gap-3">
           {numberField('calories', 'Calories', calorieGoal, setCalorieGoal, 'cal')}
           {numberField('protein', 'Protein', proteinGoal, setProteinGoal, 'g')}
@@ -80,10 +80,8 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
       </section>
 
       <section>
-        <h2 className="signage rule-top pt-1.5 pb-1 text-[0.9375rem]">
-          Dietary preferences
-        </h2>
-        <p className="mt-2 text-sm text-ink-soft">
+        <h2 className="placard border-b border-text py-2">Dietary preferences</h2>
+        <p className="mt-2 text-body text-text-muted">
           These turn on as filters when you open a menu.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -95,10 +93,10 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
                 type="button"
                 onClick={() => setDietaryPrefs(toggle(dietaryPrefs, prop))}
                 aria-pressed={on}
-                className={`border px-3 py-1.5 text-sm ${
+                className={`on-accent flex h-11 items-center rounded-full border px-4 text-body transition-colors duration-150 ease-out ${
                   on
-                    ? 'border-carolina bg-carolina text-paper-raised'
-                    : 'border-rule text-ink-soft'
+                    ? 'border-accent bg-accent font-medium text-accent-fg'
+                    : 'border-border-strong text-text-muted'
                 }`}
               >
                 {propertyLabel(prop)}
@@ -109,8 +107,8 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
       </section>
 
       <section>
-        <h2 className="signage rule-top pt-1.5 pb-1 text-[0.9375rem]">Allergens</h2>
-        <p className="mt-2 text-sm text-ink-soft">
+        <h2 className="placard border-b border-text py-2">Allergens</h2>
+        <p className="mt-2 text-body text-text-muted">
           Items containing these get a warning on the menu. They stay visible — UNC cooks in a
           shared kitchen, so always check with staff if it matters.
         </p>
@@ -123,10 +121,10 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
                 type="button"
                 onClick={() => setAllergensAvoid(toggle(allergensAvoid, key))}
                 aria-pressed={on}
-                className={`border px-3 py-1.5 text-sm ${
+                className={`flex h-11 items-center rounded-full border px-4 text-body transition-colors duration-150 ease-out ${
                   on
                     ? 'border-danger bg-danger-bg font-semibold text-danger'
-                    : 'border-rule text-ink-soft'
+                    : 'border-border-strong text-text-muted'
                 }`}
               >
                 {label}
@@ -137,12 +135,12 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
       </section>
 
       {status && (
-        <p role="status" className="text-sm font-medium text-carolina">
+        <p role="status" className="text-body font-medium text-accent-text">
           {status}
         </p>
       )}
       {error && (
-        <p role="alert" className="text-sm font-medium text-danger">
+        <p role="alert" className="text-body font-medium text-danger">
           {error}
         </p>
       )}
@@ -150,7 +148,7 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
       <button
         type="submit"
         disabled={pending}
-        className="signage w-full bg-navy py-3.5 text-base text-paper-raised disabled:opacity-60"
+        className="on-accent h-12 w-full rounded-md bg-accent text-input font-semibold text-accent-fg disabled:opacity-50"
       >
         {pending ? 'Saving…' : 'Save settings'}
       </button>

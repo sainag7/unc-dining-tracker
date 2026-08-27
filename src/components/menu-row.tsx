@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { allergenLabel, propertyLabel, conflictingAllergens } from '@/lib/labels';
+import { useEffect, useRef, useState } from 'react';
+import { DietBadges } from './ui/badge';
+import { Check, Plus } from './ui/icons';
+import { allergenLabel, conflictingAllergens } from '@/lib/labels';
 import type { RecipeRow } from '@/lib/supabase/database.types';
-
-/** Properties worth showing on a dense row; the rest live in the item sheet. */
-const ROW_PROPERTIES = new Set(['vegan', 'vegetarian', 'halal', 'made_without_gluten']);
 
 /**
  * One item on the menu.
@@ -13,6 +13,10 @@ const ROW_PROPERTIES = new Set(['vegan', 'vegetarian', 'halal', 'made_without_gl
  * The row itself opens the nutrition sheet; the button on the right logs a
  * serving outright. Splitting them is what turns a five-item meal from fifteen
  * taps into five, without losing the ability to set an exact portion.
+ *
+ * Three fixed zones, left to right: name, then dietary glyphs, then calories
+ * and the button in a column that never moves. The number sits next to the
+ * button it belongs to rather than a screen away from it.
  */
 export function MenuRow({
   item,
@@ -34,42 +38,45 @@ export function MenuRow({
   onOpenDetail: () => void;
 }) {
   const conflicts = conflictingAllergens(item.allergens, allergensAvoid);
-  const tags = item.properties.filter((p) => ROW_PROPERTIES.has(p));
   const logged = servings > 0;
 
-  const meta = [
-    stationLabel,
-    tags.length > 0 ? tags.map(propertyLabel).join(' · ') : null,
-  ].filter(Boolean) as string[];
+  // Fires the pop only on a fresh add, not on the initial render of a row
+  // that was already logged earlier in the day.
+  const [justAdded, setJustAdded] = useState(false);
+  const previous = useRef(servings);
+  useEffect(() => {
+    if (servings > previous.current) {
+      setJustAdded(true);
+      const timer = setTimeout(() => setJustAdded(false), 250);
+      return () => clearTimeout(timer);
+    }
+    previous.current = servings;
+  }, [servings]);
 
   return (
-    <li className="flex items-stretch gap-2 border-b border-rule">
-      <button
-        type="button"
-        onClick={onOpenDetail}
-        className="min-w-0 flex-1 py-2.5 text-left"
-      >
-        <span className={`block text-[0.9375rem] leading-snug ${logged ? 'text-ink-soft' : ''}`}>
+    <li className="flex items-center gap-2 border-b border-border">
+      <button type="button" onClick={onOpenDetail} className="min-w-0 flex-1 py-1.5 text-left">
+        <span className={`block truncate text-body ${logged ? 'text-text-muted' : ''}`}>
           {item.name}
         </span>
 
-        {(conflicts.length > 0 || meta.length > 0) && (
-          <span className="mt-0.5 block truncate text-xs">
+        {(conflicts.length > 0 || stationLabel) && (
+          <span className="mt-0.5 block truncate text-meta">
             {conflicts.length > 0 && (
               <span className="font-semibold text-danger">
                 Contains {conflicts.map(allergenLabel).join(', ')}
               </span>
             )}
-            {conflicts.length > 0 && meta.length > 0 && (
-              <span className="text-ink-faint"> · </span>
-            )}
-            {meta.length > 0 && <span className="text-ink-faint">{meta.join(' · ')}</span>}
+            {conflicts.length > 0 && stationLabel && <span className="text-text-muted"> · </span>}
+            {stationLabel && <span className="text-text-muted">{stationLabel}</span>}
           </span>
         )}
       </button>
 
-      <span className="flex shrink-0 items-center gap-2 py-2.5">
-        <span className="data w-10 text-right text-sm tabular-nums">
+      <DietBadges properties={item.properties} />
+
+      <span className="flex shrink-0 items-center gap-2 py-1.5">
+        <span className="data w-9 text-right text-body">
           {item.calories === null ? '—' : Math.round(item.calories)}
         </span>
 
@@ -77,30 +84,31 @@ export function MenuRow({
           <button
             type="button"
             onClick={onQuickAdd}
+            aria-pressed={logged}
             aria-label={
-              logged ? `Add another ${item.name} (${servings} logged)` : `Add ${item.name}`
+              logged ? `Add another ${item.name}. ${servings} logged.` : `Add ${item.name}`
             }
-            className={`flex h-11 w-11 items-center justify-center rounded-full border text-base ${
-              logged
-                ? 'border-carolina bg-carolina text-paper-raised'
-                : 'border-rule-strong text-ink'
-            }`}
+            className={`on-accent flex h-11 w-11 items-center justify-center rounded-full border transition-colors duration-150 ease-out ${
+              logged ? 'border-accent bg-accent text-accent-fg' : 'border-border-strong text-text'
+            } ${justAdded ? 'motion-safe:animate-pop' : ''}`}
           >
             {logged ? (
-              <span className="data text-xs font-semibold">{formatServings(servings)}</span>
+              servings === 1 ? (
+                <Check size={18} />
+              ) : (
+                <span className="data text-meta font-semibold">{formatServings(servings)}</span>
+              )
             ) : (
-              <span aria-hidden className="text-xl leading-none">
-                +
-              </span>
+              <Plus />
             )}
           </button>
         ) : (
           <Link
             href="/login"
             aria-label={`Sign in to log ${item.name}`}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-rule text-xl leading-none text-ink-faint"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-text-muted"
           >
-            <span aria-hidden>+</span>
+            <Plus />
           </Link>
         )}
       </span>
@@ -108,7 +116,7 @@ export function MenuRow({
   );
 }
 
-/** 1 → "1×", 1.5 → "1.5×" — trailing zeros just add noise in an 11px circle. */
+/** 1.5 → "1.5×" — trailing zeros just add noise in a 44px circle. */
 function formatServings(servings: number): string {
   const rounded = Math.round(servings * 100) / 100;
   return `${rounded}×`;

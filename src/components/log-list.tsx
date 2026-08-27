@@ -29,7 +29,7 @@ function EntryRow({ entry }: { entry: LogEntry }) {
     });
 
   return (
-    <li className={`border-b border-rule py-2.5 ${pending ? 'opacity-50' : ''}`}>
+    <li className={`border-b border-border py-2 transition-opacity duration-150 ease-out ${pending ? 'opacity-50' : ''}`}>
       <button
         type="button"
         onClick={() => setEditing(!editing)}
@@ -37,8 +37,8 @@ function EntryRow({ entry }: { entry: LogEntry }) {
         className="flex w-full items-start justify-between gap-3 text-left"
       >
         <span className="min-w-0">
-          <span className="block text-[0.9375rem] leading-snug">{entry.recipeName}</span>
-          <span className="mt-0.5 block truncate text-xs text-ink-faint">
+          <span className="block text-body">{entry.recipeName}</span>
+          <span className="mt-0.5 block truncate text-meta text-text-muted">
             <span className="data">{entry.servings}×</span>
             {entry.servingSize ? ` ${entry.servingSize}` : ' serving'}
             {entry.hallName ? ` · ${entry.hallName.replace(/\s*dining hall\s*/i, '')}` : ''}
@@ -46,8 +46,8 @@ function EntryRow({ entry }: { entry: LogEntry }) {
         </span>
 
         <span className="shrink-0 text-right">
-          <span className="data block text-sm font-semibold leading-none">{calories}</span>
-          <span className="data mt-0.5 block text-[10px] text-ink-faint">{protein}g P</span>
+          <span className="data block text-body font-semibold">{calories}</span>
+          <span className="data mt-0.5 block text-meta text-text-muted">{protein}g P</span>
         </span>
       </button>
 
@@ -61,10 +61,10 @@ function EntryRow({ entry }: { entry: LogEntry }) {
                 onClick={() => change(s)}
                 disabled={pending}
                 aria-pressed={s === entry.servings}
-                className={`data h-10 w-13 shrink-0 border px-3 text-sm ${
+                className={`data on-accent h-11 w-14 shrink-0 rounded-sm border text-body transition-colors duration-150 ease-out ${
                   s === entry.servings
-                    ? 'border-carolina bg-carolina text-paper-raised'
-                    : 'border-rule text-ink-soft'
+                    ? 'border-accent bg-accent text-accent-fg'
+                    : 'border-border text-text-muted'
                 }`}
               >
                 {s}×
@@ -75,7 +75,7 @@ function EntryRow({ entry }: { entry: LogEntry }) {
             type="button"
             onClick={remove}
             disabled={pending}
-            className="mt-2 text-xs text-danger underline underline-offset-2"
+            className="-ml-2 mt-1 flex h-11 items-center rounded-md px-2 text-body font-medium text-danger"
           >
             Remove
           </button>
@@ -83,7 +83,7 @@ function EntryRow({ entry }: { entry: LogEntry }) {
       )}
 
       {error && (
-        <p role="alert" className="mt-1 text-xs font-medium text-danger">
+        <p role="alert" className="mt-1 text-meta font-medium text-danger">
           {error}
         </p>
       )}
@@ -95,13 +95,13 @@ export function LogList({ entries }: { entries: LogEntry[] }) {
   if (entries.length === 0) {
     return (
       <div className="py-16 text-center">
-        <p className="signage text-lg text-ink-soft">Nothing logged</p>
-        <p className="mx-auto mt-1 max-w-xs text-sm text-ink-soft">
-          Open Menus and tap the <span aria-hidden>+</span> next to anything you ate.
+        <p className="text-input font-semibold">Nothing logged yet</p>
+        <p className="mx-auto mt-1 max-w-xs text-body text-text-muted">
+          Tap the add button next to anything on a menu and it lands here.
         </p>
         <Link
           href="/"
-          className="signage mt-5 inline-block bg-navy px-6 py-2.5 text-sm text-paper-raised"
+          className="on-accent mt-5 inline-flex h-11 items-center rounded-md bg-accent px-5 text-body font-semibold text-accent-fg"
         >
           Go to menus
         </Link>
@@ -122,10 +122,10 @@ export function LogList({ entries }: { entries: LogEntry[] }) {
       {[...groups].map(([period, items]) => {
         const subtotal = items.reduce((n, e) => n + (e.calories_snapshot ?? 0) * e.servings, 0);
         return (
-          <section key={period} className="mt-5">
-            <div className="flex items-baseline justify-between gap-3 rule-top pt-1.5 pb-1">
-              <h2 className="signage text-[0.9375rem]">{period}</h2>
-              <span className="data shrink-0 text-xs text-ink-soft">
+          <section key={period} className="mt-4">
+            <div className="flex items-center justify-between gap-3 border-b border-text py-2">
+              <h2 className="placard">{period}</h2>
+              <span className="data shrink-0 text-meta text-text-muted">
                 {Math.round(subtotal)} cal
               </span>
             </div>

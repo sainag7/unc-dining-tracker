@@ -39,18 +39,18 @@ export function WeekStrip({
             key={date}
             href={`/log?date=${date}`}
             aria-current={isSelected ? 'page' : undefined}
-            className={`flex-1 border-t-2 pt-1.5 pb-1 text-center ${
-              isSelected ? 'border-carolina' : 'border-rule'
+            className={`flex-1 rounded-sm border-t-2 pt-2 pb-1.5 text-center transition-colors duration-150 ease-out ${
+              isSelected ? 'border-accent' : 'border-border'
             }`}
           >
             <span
-              className={`label block ${isSelected ? 'text-ink' : ''}`}
+              className={`placard block ${isSelected ? 'text-text' : 'text-text-muted'}`}
               aria-hidden
             >
               {weekday}
             </span>
             <span
-              className={`data block text-sm ${isSelected ? 'font-semibold text-ink' : 'text-ink-soft'}`}
+              className={`data block text-body ${isSelected ? 'font-semibold text-text' : 'text-text-muted'}`}
             >
               {day}
             </span>
@@ -58,7 +58,7 @@ export function WeekStrip({
             <span
               aria-hidden
               className={`mx-auto mt-1 block h-1 w-1 rounded-full ${
-                hasEntries ? 'bg-carolina' : 'bg-transparent'
+                hasEntries ? 'bg-accent' : 'bg-transparent'
               }`}
             />
             <span className="sr-only">

@@ -58,18 +58,17 @@ export default async function LogPage(props: PageProps<'/log'>) {
 
   return (
     <>
-      <header className="px-4 pt-3">
-        <div className="flex items-end justify-between gap-3 border-b-2 border-rule-strong pb-1.5">
+      <header className="mx-auto w-full max-w-[640px] px-4 pt-3">
+        <div className="flex items-end justify-between gap-3 border-b border-text pb-2">
           <div className="min-w-0">
-            <h1 className="signage truncate text-[2rem] leading-none">
+            <h1 className="wordmark truncate">
               {date === today ? 'Today' : formatDate(date).split(',')[0]}
             </h1>
-            <p className="data mt-1 text-xs text-ink-soft">{formatDate(date)}</p>
+            <p className="data mt-1 text-meta text-text-muted">{formatDate(date)}</p>
           </div>
           <Link
             href="/settings"
-            className="shrink-0 pb-0.5 text-xs text-carolina"
-            aria-label="Settings"
+            className="-mr-2 flex h-11 shrink-0 items-center rounded-md px-2 text-body font-medium text-accent-text"
           >
             Settings
           </Link>
@@ -81,7 +80,7 @@ export default async function LogPage(props: PageProps<'/log'>) {
       </header>
 
       <main
-        className="flex-1 px-4"
+        className="mx-auto w-full max-w-[640px] flex-1 px-4"
         style={{ paddingBottom: 'calc(var(--tab-bar-h) + 2rem)' }}
       >
         <div className="mt-4">
@@ -95,11 +94,11 @@ export default async function LogPage(props: PageProps<'/log'>) {
         </div>
 
         {daysWithEntries.length > 0 && (
-          <p className="mt-3 border-t border-rule pt-2 text-xs text-ink-soft">
-            <span className="data font-semibold text-ink">{streak}</span>
+          <p className="mt-3 border-t border-border pt-2 text-meta text-text-muted">
+            <span className="data font-semibold text-text">{streak}</span>
             {streak === 1 ? ' day streak' : ' day streak'}
-            <span className="mx-2 text-ink-faint">·</span>
-            <span className="data font-semibold text-ink">
+            <span className="mx-2">·</span>
+            <span className="data font-semibold text-text">
               {average.toLocaleString()}
             </span>{' '}
             cal average over {daysWithEntries.length}{' '}

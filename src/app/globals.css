@@ -1,149 +1,196 @@
 @import 'tailwindcss';
 
 /*
-  Menu board.
+  Tray.
 
-  The reference is the printed board above a serving line: type and rules do
-  the work, not boxes. Sections divide with hairlines and space. Almost nothing
-  is a rounded card — the exceptions are things that genuinely are cards (the
-  nutrition panel, the item sheet) and controls that need to read as tappable.
+  The reference is the serving line: a placard over each pan, a tray in your
+  hand, and a number that has to be readable while you're standing up holding
+  a phone in one hand. Type and rules do the work. Almost nothing is a card.
 
-  Colour carries exactly three meanings and nothing else:
-    carolina — interactive
-    serving  — being served right now
-    danger   — an allergen you asked to avoid
+  One accent, and it is Carolina blue. It carries exactly four things:
+  the active tab, the add button's filled state, focus rings, and the tray
+  total. It is not a theme — if it starts showing up anywhere else, that's a
+  bug.
+
+  Every colour below was checked against its own background. The ratios are
+  recorded in DESIGN.md; the short version is that --text-muted is the one
+  that used to fail (2.67:1) and now doesn't.
 */
 
+/* next-themes writes .dark on <html>, so the variant has to follow the class
+   rather than the media query — otherwise the toggle does nothing. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --paper: #f2f0ea;
-  --paper-raised: #fbfaf7;
-  --paper-sunk: #e6e3da;
+  --bg: #f5f7f8;
+  --surface: #ffffff;
 
-  --ink: #14202a;
-  --ink-soft: #58646f;
-  --ink-faint: #8b95a0;
+  /* Hairline between rows. Decorative — it doesn't have to clear 3:1. */
+  --border: #e2e6e9;
+  /* Outlines that are part of a control. This one does have to clear 3:1. */
+  --border-strong: #83909d;
 
-  /* Hairlines between rows; rule-strong divides sections. */
-  --rule: #d5d2c8;
-  --rule-strong: #14202a;
+  --text: #101418;
+  --text-muted: #5b6772;
 
-  --carolina: #2b7fb8;
-  --navy: #13294b;
-
-  --serving: #a8620a;
-  --serving-bg: #f6ead6;
+  /* Carolina as a fill. --accent-text is the same hue pushed dark enough to
+     be read as text; you can't ask one value to do both jobs. */
+  --accent: #3e95cc;
+  --accent-fg: #0b1620;
+  --accent-text: #0b6fa8;
 
   --danger: #a8221b;
   --danger-bg: #f7e5e3;
 
-  --shadow-sheet: 0 -10px 44px rgb(20 32 42 / 0.18);
+  --shadow-sheet: 0 -10px 44px rgb(16 20 24 / 0.18);
 
-  /* Height of the fixed tab bar, so pages can clear it. */
-  --tab-bar-h: 3.75rem;
+  /* Heights of the two fixed bars, so content can clear both. */
+  --tab-bar-h: 3.5rem;
+  --tray-bar-h: 3.25rem;
+
+  --dur-fast: 150ms;
+  --dur-base: 200ms;
+  /* Same curve the ease-out utility uses. Declared here too because @theme
+     inline doesn't emit its own properties for hand-written CSS to read. */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #0e141a;
-    --paper-raised: #161e26;
-    --paper-sunk: #080c11;
+.dark {
+  --bg: #0d1117;
+  --surface: #151b23;
 
-    --ink: #eaece8;
-    --ink-soft: #9ba6b1;
-    --ink-faint: #6a747f;
+  --border: #232b35;
+  --border-strong: #5c6975;
 
-    --rule: #29333d;
-    --rule-strong: #7e8a96;
+  --text: #e6eaee;
+  --text-muted: #97a3af;
 
-    --carolina: #6cb6e6;
-    --navy: #b9cee9;
+  /* Carolina does not invert. The brand colour staying put across modes is
+     the whole point — the old --navy flipped from near-black to pale blue. */
+  --accent: #4b9cd3;
+  --accent-fg: #08111a;
+  --accent-text: #7fbee8;
 
-    --serving: #e8ab4c;
-    --serving-bg: #2a2014;
+  --danger: #f0897f;
+  --danger-bg: #2c1513;
 
-    --danger: #f0897f;
-    --danger-bg: #2c1513;
-
-    --shadow-sheet: 0 -10px 44px rgb(0 0 0 / 0.55);
-  }
+  --shadow-sheet: 0 -10px 44px rgb(0 0 0 / 0.55);
 }
 
 @theme inline {
-  --color-paper: var(--paper);
-  --color-paper-raised: var(--paper-raised);
-  --color-paper-sunk: var(--paper-sunk);
-  --color-ink: var(--ink);
-  --color-ink-soft: var(--ink-soft);
-  --color-ink-faint: var(--ink-faint);
-  --color-rule: var(--rule);
-  --color-rule-strong: var(--rule-strong);
-  --color-carolina: var(--carolina);
-  --color-navy: var(--navy);
-  --color-serving: var(--serving);
-  --color-serving-bg: var(--serving-bg);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-text: var(--accent-text);
   --color-danger: var(--danger);
   --color-danger-bg: var(--danger-bg);
 
-  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-archivo-narrow), var(--font-public-sans), sans-serif;
-  --font-data: var(--font-plex-mono), ui-monospace, monospace;
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /*
+    The scale. Seven steps, and components use these names rather than
+    inventing arbitrary values — the previous pass had thirteen distinct
+    sizes, six of them one-offs like text-[0.9375rem].
+
+    --text-input is 16px because anything smaller makes iOS zoom the page
+    when the field takes focus.
+  */
+  --text-meta: 0.75rem;
+  --text-meta--line-height: 1rem;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.25rem;
+  --text-input: 1rem;
+  --text-input--line-height: 1.5rem;
+  --text-data-lg: 1.375rem;
+  --text-data-lg--line-height: 1.5rem;
+  --text-display: 1.75rem;
+  --text-display--line-height: 2rem;
+  --text-data-xl: 2.125rem;
+  --text-data-xl--line-height: 2.25rem;
+
+  /* Literals, not var() — these are Tailwind namespaces, so @theme emits them
+     into :root itself. Referencing :root here would be circular. */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1rem;
+
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+}
+
+html {
+  /* Makes native scrollbars, number spinners and the search field's clear
+     button follow the theme. Without it they render light on dark. */
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--paper);
-  color: var(--ink);
+  background: var(--bg);
+  color: var(--text);
   font-family: var(--font-sans);
   -webkit-tap-highlight-color: transparent;
 }
 
 /*
-  Signage: station names and headers, set the way a board sets them —
-  condensed, uppercase, tracked open just enough to stay legible small.
+  The placard over the pan: small, bold, tracked open, uppercase. Station
+  names and section headers only.
 */
-.signage {
-  font-family: var(--font-display);
+.placard {
+  font-size: var(--text-meta);
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
-  font-weight: 700;
-  line-height: 1.05;
 }
 
-/* Every figure the reader compares to another figure. Tabular so columns align. */
+/* Every figure the reader compares to another figure. Tabular so a column of
+   calories lines up on the decimal even when the digits change. */
 .data {
-  font-family: var(--font-data);
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
 }
 
-/* Small caps-ish label used for eyebrows and units. */
-.label {
-  font-size: 0.6875rem;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
+/* The venue wordmark. */
+.wordmark {
+  font-size: var(--text-display);
+  line-height: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
-/* The heavy rule that opens a section, echoing a board's header bar. */
-.rule-top {
-  border-top: 2px solid var(--rule-strong);
-}
-
-/* Search field: an underline, not a box. */
+/* Inputs are underlines, not boxes — the one idiom worth keeping from the
+   old board. :focus-visible below still wins for keyboard users. */
 .field-underline {
   background: transparent;
   border: 0;
-  border-bottom: 1px solid var(--rule-strong);
+  border-bottom: 1px solid var(--border-strong);
   border-radius: 0;
   padding: 0.5rem 0;
 }
 .field-underline:focus {
   outline: none;
   border-bottom-width: 2px;
+  border-bottom-color: var(--accent-text);
 }
 
 :focus-visible {
-  outline: 2px solid var(--carolina);
+  outline: 2px solid var(--accent-text);
   outline-offset: 2px;
+}
+
+/* On an accent-filled control an accent ring is invisible, so those switch to
+   the foreground colour instead. */
+.on-accent:focus-visible {
+  outline-color: var(--accent-fg);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -151,8 +198,10 @@ body {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
     scroll-behavior: auto !important;
   }
 }
@@ -163,4 +212,38 @@ body {
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/*
+  Motion. Transform and opacity only, so none of it triggers layout.
+  Everything here is gated behind motion-safe: at the call site, on top of
+  the reduce block above.
+*/
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(1.5rem);
+  }
+}
+
+/* The add button's confirmation. */
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(0.88);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.animate-pop {
+  animation: pop var(--dur-base) var(--ease);
 }

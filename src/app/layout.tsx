@@ -1,28 +1,22 @@
 import type { Metadata, Viewport } from 'next';
-import { Archivo_Narrow, Public_Sans, IBM_Plex_Mono } from 'next/font/google';
+import { Geist, Geist_Mono } from 'next/font/google';
 import { createClient } from '@/lib/supabase/server';
 import { getDayLog, totalsFor } from '@/lib/log';
 import { campusToday } from '@/lib/dates';
+import { ThemeProvider } from '@/components/theme-provider';
 import { TabBar } from '@/components/tab-bar';
+import { TrayBar } from '@/components/tray-bar';
 import './globals.css';
 
-const publicSans = Public_Sans({
-  variable: '--font-public-sans',
+const geist = Geist({
+  variable: '--font-geist',
   subsets: ['latin'],
 });
 
-// Condensed and uppercase, the way station signs are actually set.
-const archivoNarrow = Archivo_Narrow({
-  variable: '--font-archivo-narrow',
+// Carries every number the reader compares: calories, macros, the tray total.
+const geistMono = Geist_Mono({
+  variable: '--font-geist-mono',
   subsets: ['latin'],
-  weight: ['600', '700'],
-});
-
-// Carries every number the reader compares: calories, macros, nutrition panels.
-const plexMono = IBM_Plex_Mono({
-  variable: '--font-plex-mono',
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
 });
 
 export const metadata: Metadata = {
@@ -34,35 +28,41 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f2f0ea' },
-    { media: '(prefers-color-scheme: dark)', color: '#0e141a' },
-  ],
+  // No themeColor here on purpose. It would follow the OS rather than the
+  // theme class, and Next re-renders it on every navigation, which overwrote
+  // every attempt to correct it from the client. ThemeColorMeta in
+  // theme-provider.tsx renders the tag instead, so it tracks the toggle.
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
 };
 
 export default async function RootLayout({ children }: LayoutProps<'/'>) {
-  // The tab bar shows today's running total, so it's resolved once here rather
-  // than by every page that mounts it.
+  // The tray bar shows what's on the tray right now, so the day's log is
+  // resolved once here rather than by every page that mounts it.
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const todayCalories = user
-    ? totalsFor(await getDayLog(supabase, user.id, campusToday())).calories
-    : null;
+  const entries = user ? await getDayLog(supabase, user.id, campusToday()) : null;
 
   return (
+    // suppressHydrationWarning: next-themes writes the class on <html> before
+    // React hydrates, so the server and client markup differ by design.
     <html
       lang="en"
-      className={`${publicSans.variable} ${archivoNarrow.variable} ${plexMono.variable} h-full antialiased`}
+      suppressHydrationWarning
+      className={`${geist.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        {children}
-        <TabBar todayCalories={todayCalories} />
+        <ThemeProvider>
+          {children}
+          {/* Signed out there is no tray, so the bar would be an empty
+              promise — the row's + becomes a sign-in link instead. */}
+          {entries && <TrayBar entries={entries} calories={totalsFor(entries).calories} />}
+          <TabBar />
+        </ThemeProvider>
       </body>
     </html>
   );

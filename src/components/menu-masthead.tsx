@@ -2,14 +2,24 @@ import Link from 'next/link';
 import type { DiningHallRow } from '@/lib/supabase/database.types';
 import type { MealPeriodSummary } from '@/lib/menu';
 import { addDays } from '@/lib/dates';
+import { SegmentedControl, type Segment } from '@/components/ui/segmented-control';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { ChevronLeft, ChevronRight } from '@/components/ui/icons';
 
-function href(params: { hall: string; date: string; period?: string }) {
+/**
+ * Builds a menu URL.
+ *
+ * `period` is carried through deliberately: it used to be dropped from the
+ * day and hall links, so stepping from Tuesday to Wednesday while looking at
+ * dinner silently put you back on breakfast.
+ */
+function href(params: { hall: string; date: string; period?: string | null }) {
   const search = new URLSearchParams({ hall: params.hall, date: params.date });
   if (params.period) search.set('period', params.period);
   return `/?${search.toString()}`;
 }
 
-/** "Thu Aug 21", resolved in UTC so the stored date never shifts. */
+/** "Thu, Aug 21", resolved in UTC so the stored date never shifts. */
 function formatDate(isoDate: string, opts: Intl.DateTimeFormatOptions): string {
   const [y, m, d] = isoDate.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
@@ -18,15 +28,15 @@ function formatDate(isoDate: string, opts: Intl.DateTimeFormatOptions): string {
   });
 }
 
-/** Strips "Dining Hall" — the masthead has no room for words that say nothing. */
+/** Strips "Dining Hall" — the switcher has no room for words that say nothing. */
 const shortHall = (name: string) => name.replace(/\s*dining hall\s*/i, '').trim();
 
 /**
- * Hall, date, and meal period in one block.
+ * Hall, date, and meal period.
  *
- * The old header stacked three full-width rows of controls before any food
- * appeared, which on a phone was most of the screen. This is a masthead:
- * the hall reads large, everything else is subordinate to it.
+ * Deliberately not sticky. At five rows tall it's over a third of a phone
+ * screen, and the thing actually worth keeping on screen while you scroll a
+ * long menu is the station placard — which pins at the top instead.
  */
 export function MenuMasthead({
   halls,
@@ -45,85 +55,90 @@ export function MenuMasthead({
   currentPeriod: string | null;
   servingNowPeriod: string | null;
 }) {
-  const hall = halls.find((h) => h.slug === currentHall);
-  const other = halls.find((h) => h.slug !== currentHall);
   const period = periods.find((p) => p.name === currentPeriod);
+  const isToday = date === today;
+
+  const hallSegments: Segment[] = halls.map((h) => ({
+    value: h.slug,
+    label: shortHall(h.name),
+    href: href({ hall: h.slug, date, period: currentPeriod }),
+  }));
+
+  const periodSegments: Segment[] = periods.map((p) => ({
+    value: p.name,
+    label: p.name,
+    href: href({ hall: currentHall, date, period: p.name }),
+    badge: p.name === servingNowPeriod ? 'now' : undefined,
+  }));
 
   return (
-    <header className="px-4 pt-3">
-      <div className="flex items-end justify-between gap-3 border-b-2 border-rule-strong pb-1.5">
-        <div className="min-w-0">
-          <h1 className="signage truncate text-[2rem] leading-none">
-            {shortHall(hall?.name ?? 'Menu')}
-          </h1>
-          {other && (
+    <header className="border-b border-border">
+      <div className="mx-auto w-full max-w-[640px] px-4 pt-2">
+        <div className="flex items-center justify-between gap-3">
+          <Link href="/" className="wordmark">
+            Tray
+          </Link>
+          <div className="-mr-2 flex items-center">
+            <ThemeToggle />
+          </div>
+        </div>
+
+        {hallSegments.length > 1 && (
+          <div className="mt-1">
+            <SegmentedControl segments={hallSegments} value={currentHall} label="Dining hall" />
+          </div>
+        )}
+
+        <div className="mt-1 flex items-center gap-1">
+          <Link
+            href={href({ hall: currentHall, date: addDays(date, -1), period: currentPeriod })}
+            aria-label="Previous day"
+            className="-ml-2.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text-muted"
+          >
+            <ChevronLeft />
+          </Link>
+
+          <span className="data flex-1 text-center text-body font-medium">
+            {isToday ? 'Today' : formatDate(date, { weekday: 'short' })}
+            <span className="text-text-muted">
+              {' · '}
+              {formatDate(date, { month: 'short', day: 'numeric' })}
+            </span>
+          </span>
+
+          <Link
+            href={href({ hall: currentHall, date: addDays(date, 1), period: currentPeriod })}
+            aria-label="Next day"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text-muted"
+          >
+            <ChevronRight />
+          </Link>
+
+          {/* Only worth screen space once you've navigated away from it. */}
+          {!isToday && (
             <Link
-              href={href({ hall: other.slug, date })}
-              className="mt-1 inline-block text-xs text-carolina underline underline-offset-2"
+              href={href({ hall: currentHall, date: today, period: currentPeriod })}
+              className="-mr-2 flex h-11 shrink-0 items-center rounded-md px-2 text-meta font-medium text-accent-text"
             >
-              Switch to {shortHall(other.name)}
+              Today
             </Link>
           )}
         </div>
 
-        <div className="shrink-0 text-right">
-          <div className="data text-sm leading-tight">
-            {date === today ? 'Today' : formatDate(date, { weekday: 'short' })}
-          </div>
-          <div className="data text-xs leading-tight text-ink-soft">
-            {formatDate(date, { month: 'short', day: 'numeric' })}
-          </div>
-          <div className="mt-1 flex justify-end gap-2 text-xs">
-            <Link
-              href={href({ hall: currentHall, date: addDays(date, -1) })}
-              className="text-carolina"
-              aria-label="Previous day"
-            >
-              Prev
-            </Link>
-            <span aria-hidden className="text-ink-faint">
-              ·
-            </span>
-            <Link
-              href={href({ hall: currentHall, date: addDays(date, 1) })}
-              className="text-carolina"
-              aria-label="Next day"
-            >
-              Next
-            </Link>
-          </div>
-        </div>
+        {periodSegments.length > 0 && (
+          <SegmentedControl
+            segments={periodSegments}
+            value={currentPeriod ?? ''}
+            label="Meal period"
+            scrollActiveIntoView
+          />
+        )}
       </div>
 
-      {periods.length > 0 && (
-        <>
-          <div className="no-scrollbar -mx-4 mt-2 flex gap-4 overflow-x-auto px-4">
-            {periods.map((p) => {
-              const active = p.name === currentPeriod;
-              return (
-                <Link
-                  key={p.id}
-                  href={href({ hall: currentHall, date, period: p.name })}
-                  aria-current={active ? 'page' : undefined}
-                  className={`shrink-0 border-b-2 pb-1.5 ${
-                    active ? 'border-carolina text-ink' : 'border-transparent text-ink-faint'
-                  }`}
-                >
-                  <span className="signage text-[0.9375rem]">{p.name}</span>
-                  {p.name === servingNowPeriod && (
-                    <span className="label ml-1.5 text-serving">now</span>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-
-          {period?.timeLabel && (
-            <p className="data mt-1.5 text-xs text-ink-soft">
-              Served {period.timeLabel}
-            </p>
-          )}
-        </>
+      {period?.timeLabel && (
+        <p className="mx-auto w-full max-w-[640px] px-4 pt-1.5 pb-2 text-meta text-text-muted">
+          <span className="data">Served {period.timeLabel}</span>
+        </p>
       )}
     </header>
   );

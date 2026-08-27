@@ -12,8 +12,10 @@ export function GET() {
       "See what Chase and Lenoir are serving right now, and keep a running count of what you've eaten.",
     start_url: '/',
     display: 'standalone',
-    background_color: '#f1f0eb',
-    theme_color: '#13294b',
+    // --bg and --accent, light mode. These drifted from the palette once
+    // already; if they look wrong, check globals.css first.
+    background_color: '#f5f7f8',
+    theme_color: '#3e95cc',
     orientation: 'portrait',
     icons: [
       {

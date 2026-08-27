@@ -1,208 +1,46 @@
-'use client';
-
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import { campusToday } from '@/lib/dates';
+import { LoginForm } from '@/components/login-form';
 
-type Mode = 'signin' | 'signup' | 'verify';
+/** "Wed, Aug 26" — a menu is always a menu for a given day. */
+function boardDate(isoDate: string): string {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+}
 
-export default function LoginPage() {
-  const router = useRouter();
-  const supabase = createClient();
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const [mode, setMode] = useState<Mode>('signin');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [code, setCode] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  // Confirming an email link signs you in, so landing back here means the
+  // session already took — nothing left to do on this page.
+  if (user) redirect('/');
 
-  async function withBusy(fn: () => Promise<void>) {
-    setBusy(true);
-    setError(null);
-    try {
-      await fn();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const signInWithGoogle = () =>
-    withBusy(async () => {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
-      });
-      if (error) throw error;
-    });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (mode === 'signin') {
-      return withBusy(async () => {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        router.push('/');
-        router.refresh();
-      });
-    }
-
-    if (mode === 'signup') {
-      return withBusy(async () => {
-        if (password.length < 8) {
-          throw new Error('Password needs to be at least 8 characters.');
-        }
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        setMode('verify');
-        setNotice(`We sent a 6-digit code to ${email}.`);
-      });
-    }
-
-    return withBusy(async () => {
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token: code.trim(),
-        type: 'signup',
-      });
-      if (error) throw error;
-      router.push('/');
-      router.refresh();
-    });
-  };
+  const { error } = await searchParams;
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-12">
-      <Link href="/" className="signage mb-1 text-[2.5rem] leading-none text-navy">
-        Tray
-      </Link>
-      <p className="mb-8 text-sm text-ink-soft">
-        {mode === 'verify'
-          ? 'Check your email for the code.'
-          : 'Track what you eat at Chase and Lenoir.'}
-      </p>
+      <div className="flex items-baseline justify-between gap-3 border-b border-text pb-2">
+        <Link href="/" className="wordmark">
+          Tray
+        </Link>
+        <span className="data text-meta text-text-muted">{boardDate(campusToday())}</span>
+      </div>
 
-      {mode !== 'verify' && (
-        <>
-          <button
-            type="button"
-            onClick={signInWithGoogle}
-            disabled={busy}
-            className="signage w-full border-2 border-rule-strong py-3 text-base disabled:opacity-60"
-          >
-            Continue with Google
-          </button>
-
-          <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-wide text-ink-faint">
-            <span className="h-px flex-1 bg-rule" />
-            or
-            <span className="h-px flex-1 bg-rule" />
-          </div>
-        </>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-3">
-        {mode === 'verify' ? (
-          <div>
-            <label htmlFor="code" className="mb-1 block text-sm font-medium">
-              Verification code
-            </label>
-            <input
-              id="code"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              required
-              placeholder="123456"
-              className="data field-underline w-full text-lg tracking-[0.3em]"
-            />
-          </div>
-        ) : (
-          <>
-            <div>
-              <label htmlFor="email" className="mb-1 block text-sm font-medium">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="you@unc.edu"
-                className="field-underline w-full text-base"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="mb-1 block text-sm font-medium">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="field-underline w-full text-base"
-              />
-              {mode === 'signup' && (
-                <p className="mt-1 text-xs text-ink-soft">At least 8 characters.</p>
-              )}
-            </div>
-          </>
-        )}
-
-        {notice && <p className="text-sm text-ink-soft">{notice}</p>}
-        {error && (
-          <p role="alert" className="text-sm font-medium text-danger">
-            {error}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          disabled={busy}
-          className="signage w-full bg-navy py-3.5 text-base text-paper-raised disabled:opacity-60"
-        >
-          {busy
-            ? 'Working…'
-            : mode === 'signin'
-              ? 'Sign in'
-              : mode === 'signup'
-                ? 'Create account'
-                : 'Verify and continue'}
-        </button>
-      </form>
-
-      {mode !== 'verify' && (
-        <p className="mt-5 text-center text-sm text-ink-soft">
-          {mode === 'signin' ? "Don't have an account?" : 'Already have one?'}{' '}
-          <button
-            type="button"
-            onClick={() => {
-              setMode(mode === 'signin' ? 'signup' : 'signin');
-              setError(null);
-              setNotice(null);
-            }}
-            className="font-semibold text-carolina underline underline-offset-2"
-          >
-            {mode === 'signin' ? 'Create one' : 'Sign in'}
-          </button>
-        </p>
-      )}
-
-      <Link href="/" className="mt-8 text-center text-sm text-carolina underline underline-offset-2">
-        Browse the menu without an account
-      </Link>
+      <LoginForm initialError={error ?? null} />
     </main>
   );
 }
