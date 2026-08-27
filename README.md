@@ -71,10 +71,24 @@ In your Supabase project:
 1. **Authentication → Providers → Google**: enable it, add your OAuth client ID/secret from
    Google Cloud Console, and set the authorized redirect URI to
    `https://<project>.supabase.co/auth/v1/callback`.
-2. **Authentication → URL Configuration**: add `http://localhost:3000/auth/callback` and
-   your production callback URL to the allow list.
-3. **Authentication → Email Templates → Confirm signup**: make sure the template includes
-   `{{ .Token }}`. The login flow uses a 6-digit code, not a magic link.
+2. **Authentication → URL Configuration**: set **Site URL** to your production origin, and
+   add these to the **Redirect URLs** allow list:
+
+   ```
+   https://<app>.vercel.app/**
+   https://<app>-*.vercel.app/**   # preview deploys — the host changes every push
+   http://localhost:3000/**
+   ```
+
+   The `/**` matters. Supabase matches the whole URL, so a bare origin does **not**
+   authorize `<origin>/auth/callback`. When nothing matches, Supabase silently falls back
+   to the Site URL and hangs the OAuth code off that instead, which used to strand sign-in
+   on the menu. `src/proxy.ts` now forwards a stray `?code=` on to `/auth/callback` so a
+   gap here degrades to a slower sign-in rather than a silent failure — but fix the list.
+3. **Authentication → Email Templates → Confirm signup**: the stock template is fine. Sign-up
+   confirmation is link-based — the link goes through Supabase's `/auth/v1/verify`, which
+   forwards to `/auth/callback?code=…`. There is no 6-digit code to type in. The callback
+   also accepts `?token_hash=&type=` if you ever switch to a custom template.
 
 ## How the scraper works
 

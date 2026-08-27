@@ -105,13 +105,6 @@ export const Moon = (p: IconProps) => (
   </Svg>
 );
 
-export const Monitor = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="2" y="4" width="20" height="13" rx="2" />
-    <path d="M8 21h8M12 17v4" />
-  </Svg>
-);
-
 /** The tray, seen from above — same object as the app icon. */
 export const Tray = (p: IconProps) => (
   <Svg {...p}>

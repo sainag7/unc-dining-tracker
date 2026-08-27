@@ -157,15 +157,30 @@ Everything animated is behind `motion-safe:`, on top of the global
 
 ## Theming
 
-`next-themes` on the `class` strategy, `defaultTheme="system"`, toggle cycling
-light → dark → system with the current state visible.
+`next-themes` on the `class` strategy, with a two-state toggle: light or dark,
+nothing else.
+
+**The toggle shows its destination, not its state.** A sun while you're dark, a
+moon while you're light. The three-state cycle it replaced had to show the
+current mode instead — with light → dark → system you couldn't predict a tap
+without knowing the order — and it made getting from light to system a two-tap
+trip through a mode you didn't want. Two states need no such knowledge.
+
+**`defaultTheme="system"` stays anyway.** System isn't a mode here, it's the
+value before a choice exists: a first-time visitor gets the theme their OS is
+set to, and the first tap pins light or dark for good. Removing `enableSystem`
+would land everyone on light regardless of how their machine is configured. The
+toggle therefore reads `resolvedTheme`, never `theme` — the latter is still the
+string `"system"` until that first tap.
 
 Two traps, both handled:
 
 **`viewport.themeColor` follows the OS, not the class.** Media-query
 `themeColor` is right before hydration and wrong the moment someone uses the
-toggle. `ThemeColorSync` in `theme-provider.tsx` removes the media-scoped tags
-and writes a single unconditional one once the resolved theme is known.
+toggle. `ThemeColorMeta` in `theme-provider.tsx` renders the tag itself, so it
+re-renders with the theme like any other component. Two earlier attempts to
+patch Next's own tags from an effect both failed — the reasons are recorded in
+the comment above that component.
 
 **`color-scheme` was never set.** Without it, native scrollbars, number
 spinners, and the search field's clear button render in light chrome on a dark
@@ -186,7 +201,7 @@ The no-flash script lands 77 characters into `<body>`, before any content.
 - **Station collapse is stored as overrides**, not as the full closed set, so
   `stationsToCollapse()` keeps making the call for stations the user has never
   touched — including ones that appear on a menu for the first time.
-- **Icons are hand-rolled SVG** in `ui/icons.tsx`. Eleven glyphs, one stroke
+- **Icons are hand-rolled SVG** in `ui/icons.tsx`. Ten glyphs, one stroke
   width, one grid. An icon package would be the largest dependency in the
   project.
 - **There is one `Sheet`.** It owns focus trap, Escape, scroll-lock, and the

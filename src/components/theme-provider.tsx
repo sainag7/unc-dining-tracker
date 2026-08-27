@@ -31,6 +31,13 @@ function ThemeColorMeta() {
   return <meta name="theme-color" content={BAR_COLOR[resolvedTheme]} />;
 }
 
+/**
+ * `defaultTheme="system"` survives even though the toggle is light-vs-dark and
+ * offers no "system" state. It isn't a mode here, it's the value before a
+ * choice exists: a first-time visitor gets the theme their OS is set to, and
+ * the first tap pins light or dark for good. Drop `enableSystem` and everyone
+ * arrives on light regardless of how their machine is configured.
+ */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   return (
     <NextThemes attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
