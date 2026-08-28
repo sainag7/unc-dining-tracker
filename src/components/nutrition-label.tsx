@@ -89,7 +89,7 @@ export function NutritionLabel({
       </div>
 
       {servings !== 1 && (
-        <div className="flex items-baseline justify-between rounded-sm bg-accent px-2 py-1 text-[12px] text-accent-fg">
+        <div className="flex items-baseline justify-between rounded-sm border border-border-strong px-2 py-1 text-[12px]">
           <span>Showing</span>
           <span className="data font-semibold">{servings} servings</span>
         </div>

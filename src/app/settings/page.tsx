@@ -33,7 +33,7 @@ export default async function SettingsPage() {
           <h1 className="wordmark">Settings</h1>
           <p className="mt-1 truncate text-meta text-text-muted">{user.email}</p>
         </div>
-        <Link href="/log" className="-mr-2 flex h-11 shrink-0 items-center rounded-md px-2 text-body font-medium text-accent-text">
+        <Link href="/log" className="-mr-2 flex h-11 shrink-0 items-center rounded-md px-2 text-body font-medium underline underline-offset-2">
           Done
         </Link>
       </div>

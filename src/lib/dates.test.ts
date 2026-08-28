@@ -6,6 +6,8 @@ import {
   dateRange,
   currentMealPeriodIndex,
   servingMealPeriodIndex,
+  formatClock,
+  toHHMM,
 } from './dates';
 
 describe('campus date resolution', () => {
@@ -110,5 +112,66 @@ describe('servingMealPeriodIndex', () => {
     expect(servingMealPeriodIndex(chase, '05:00')).toBe(-1);
     expect(servingMealPeriodIndex(chase, '10:50')).toBe(-1);
     expect(servingMealPeriodIndex(chase, '17:00')).toBe(-1);
+  });
+});
+
+describe('formatClock', () => {
+  it('formats afternoon times', () => {
+    expect(formatClock('17:00')).toBe('5:00pm');
+    expect(formatClock('14:30')).toBe('2:30pm');
+  });
+
+  it('formats morning times', () => {
+    expect(formatClock('07:00')).toBe('7:00am');
+    expect(formatClock('10:45')).toBe('10:45am');
+  });
+
+  // 12 is the case every naive modulo gets wrong in one direction or the other.
+  it('handles noon and midnight', () => {
+    expect(formatClock('12:00')).toBe('12:00pm');
+    expect(formatClock('00:00')).toBe('12:00am');
+  });
+
+  it('returns null rather than a broken time', () => {
+    expect(formatClock(null)).toBeNull();
+    expect(formatClock('5pm')).toBeNull();
+    expect(formatClock('25:00')).toBeNull();
+  });
+});
+
+describe('toHHMM', () => {
+  // Postgres `time` columns come back with seconds. Everything that compares
+  // against campusTimeOfDay() needs them without.
+  it('drops the seconds Postgres adds', () => {
+    expect(toHHMM('15:00:00')).toBe('15:00');
+    expect(toHHMM('07:30:00')).toBe('07:30');
+  });
+
+  it('leaves an already-normalised time alone', () => {
+    expect(toHHMM('15:00')).toBe('15:00');
+  });
+
+  it('returns null rather than a half-parsed time', () => {
+    expect(toHHMM(null)).toBeNull();
+    expect(toHHMM('3pm')).toBeNull();
+    expect(toHHMM('')).toBeNull();
+  });
+});
+
+describe('servingMealPeriodIndex, against database-shaped times', () => {
+  // The regression this guards: fixtures were 'HH:MM' but the database returns
+  // 'HH:MM:SS', and "15:00" >= "15:00:00" is false as a string comparison, so a
+  // period did not count as started until a minute after it started.
+  const raw = [
+    { startTime: '15:00:00', endTime: '17:00:00' },
+    { startTime: '17:00:00', endTime: '20:00:00' },
+  ].map((p) => ({ startTime: toHHMM(p.startTime), endTime: toHHMM(p.endTime) }));
+
+  it('counts a period as serving from its first minute', () => {
+    expect(servingMealPeriodIndex(raw, '15:00')).toBe(0);
+  });
+
+  it('ends a period on its closing minute, not after', () => {
+    expect(servingMealPeriodIndex(raw, '17:00')).toBe(1);
   });
 });

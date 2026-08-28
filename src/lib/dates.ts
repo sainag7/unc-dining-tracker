@@ -84,3 +84,45 @@ export function currentMealPeriodIndex(
   const upcoming = periods.findIndex((p) => p.startTime !== null && nowHHMM < p.startTime);
   return upcoming !== -1 ? upcoming : 0;
 }
+
+/**
+ * Normalises a Postgres `time` to the "HH:MM" the rest of this module speaks.
+ *
+ * `menu_periods.start_time` is a `time` column, and Supabase returns those as
+ * "15:00:00". Everything here compares against campusTimeOfDay(), which is
+ * "15:00" — and comparing those two as strings is subtly wrong at the edges:
+ * "15:00" >= "15:00:00" is false, because the shorter string sorts first, so a
+ * period read straight from the database does not count as started until a
+ * minute after it starts. The unit tests never caught it because their
+ * fixtures were already in "HH:MM".
+ */
+export function toHHMM(raw: string | null): string | null {
+  if (!raw) return null;
+  const m = raw.match(/^(\d{2}):(\d{2})(?::\d{2})?$/);
+  return m ? `${m[1]}:${m[2]}` : null;
+}
+
+/**
+ * "17:00" -> "5:00pm", for the meal-period status line.
+ *
+ * The scraper stores 24h "HH:MM" (parseClock) and keeps UNC's own display
+ * string separately as timeLabel — but that string is whatever the site typed
+ * ("7am-10:45am", "3pm-5pm"), so it can't be split into a single edge without
+ * re-parsing it. This formats the parsed value instead, which is why the line
+ * can say "until 5:00pm" rather than echoing a whole range.
+ *
+ * Returns null on anything unparseable, so the caller falls back to the
+ * label UNC gave rather than printing a broken time.
+ */
+export function formatClock(raw: string | null): string | null {
+  const hhmm = toHHMM(raw);
+  if (!hhmm) return null;
+
+  const hour24 = Number(hhmm.slice(0, 2));
+  const minute = hhmm.slice(3, 5);
+  if (hour24 > 23) return null;
+
+  const meridiem = hour24 < 12 ? 'am' : 'pm';
+  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+  return `${hour12}:${minute}${meridiem}`;
+}

@@ -3,12 +3,10 @@
 import { useState, useTransition } from 'react';
 import { NutritionLabel } from './nutrition-label';
 import { Sheet } from './ui/sheet';
-import { logFood } from '@/app/actions';
+import { logFood, type LogResult } from '@/app/actions';
 import { allergenLabel, propertyLabel, conflictingAllergens } from '@/lib/labels';
+import { SERVING_STEPS } from '@/lib/servings';
 import type { RecipeRow } from '@/lib/supabase/database.types';
-
-/** Portions people actually take at a dining hall, rather than a free-text box. */
-const SERVING_STEPS = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4];
 
 export interface SheetContext {
   serviceDate: string;
@@ -30,7 +28,7 @@ export function ItemSheet({
   /** Already logged today — shown so the sheet doesn't contradict the menu row. */
   servingsToday?: number;
   onClose: () => void;
-  onLogged: (recipe: RecipeRow, servings: number, logId?: number) => void;
+  onLogged: (recipe: RecipeRow, servings: number, result: LogResult) => void;
 }) {
   const [servings, setServings] = useState(1);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +48,7 @@ export function ItemSheet({
       });
 
       if (result.ok) {
-        onLogged(recipe, servings, result.logId);
+        onLogged(recipe, servings, result);
         onClose();
       } else {
         setError(result.error ?? 'Something went wrong.');
@@ -123,7 +121,7 @@ export function ItemSheet({
               aria-pressed={s === servings}
               className={`data on-accent h-11 w-14 shrink-0 rounded-sm border text-body transition-colors duration-150 ease-out ${
                 s === servings
-                  ? 'border-accent bg-accent text-accent-fg'
+                  ? 'bg-accent text-accent-fg'
                   : 'border-border text-text-muted'
               }`}
             >

@@ -5,18 +5,35 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ItemSheet, type SheetContext } from './item-sheet';
 import { MenuRow } from './menu-row';
 import { Sheet } from './ui/sheet';
-import { ChevronDown, Check, Search, Sliders, Close } from './ui/icons';
-import { logFood, removeLog } from '@/app/actions';
+import { UndoToast } from './ui/undo-toast';
+import { ChevronDown, Check, Search, Sliders, Close, ArrowsSort } from './ui/icons';
+import { logFood, removeLog, removeServing, updateServings } from '@/app/actions';
 import { FILTERABLE_PROPERTIES, propertyLabel } from '@/lib/labels';
 import { orderStations, stationsToCollapse } from '@/lib/stations';
+import { applySort, nextSortMode, parseSortMode, sortLabel, type SortMode } from '@/lib/sort';
 import { useStationOverrides, setStationOverrides } from '@/lib/station-prefs';
 import type { RecipeRow } from '@/lib/supabase/database.types';
 import type { StationWithItems } from '@/lib/menu';
+
+/** Spoken form of each sort mode, for the button's accessible name. */
+const SORT_DESCRIPTION: Record<SortMode, string> = {
+  station: 'grouped by station',
+  'cal-asc': 'sorted by calories, lowest first',
+  'cal-desc': 'sorted by calories, highest first',
+};
 
 interface Added {
   logId: number;
   label: string;
   recipeId: number;
+  /**
+   * What the line held before this add. Undo restores this rather than
+   * deleting: adds now increment an existing line, so deleting would throw
+   * away helpings the user never asked to take back.
+   */
+  previousServings: number;
+  /** How much this add put on, so undo can take exactly that much off. */
+  addedServings: number;
 }
 
 export function MenuBrowser({
@@ -51,7 +68,7 @@ export function MenuBrowser({
     return fromUrl ? fromUrl.split(',').filter((p) => FILTERABLE_PROPERTIES.includes(p as never)) : [];
   });
 
-  const [searchOpen, setSearchOpen] = useState(() => (searchParams.get('q') ?? '') !== '');
+  const [sortMode, setSortMode] = useState<SortMode>(() => parseSortMode(searchParams.get('sort')));
   const [showFilters, setShowFilters] = useState(false);
   const [detail, setDetail] = useState<RecipeRow | null>(null);
   const [logged, setLogged] = useState<Record<number, number>>(loggedServings);
@@ -68,7 +85,7 @@ export function MenuBrowser({
    * the keystroke instead of waiting for an RSC response.
    */
   const syncUrl = useCallback(
-    (next: { q?: string; diet?: string[] }) => {
+    (next: { q?: string; diet?: string[]; sort?: SortMode }) => {
       const params = new URLSearchParams(searchParams.toString());
 
       const q = next.q ?? query;
@@ -79,10 +96,14 @@ export function MenuBrowser({
       if (diet.length > 0) params.set('diet', diet.join(','));
       else params.delete('diet');
 
+      const sort = next.sort ?? sortMode;
+      if (sort !== 'station') params.set('sort', sort);
+      else params.delete('sort');
+
       const search = params.toString();
       window.history.replaceState(null, '', search ? `/?${search}` : '/');
     },
-    [searchParams, query, activeProps],
+    [searchParams, query, activeProps, sortMode],
   );
 
   // Which stations start closed, before the user's own overrides land.
@@ -114,13 +135,19 @@ export function MenuBrowser({
     );
   }, [searching, stations, matchesFilters]);
 
-  const visibleStations = useMemo(
-    () =>
-      stations
-        .map((s) => ({ ...s, items: s.items.filter(matchesFilters) }))
-        .filter((s) => s.items.length > 0),
-    [stations, matchesFilters],
-  );
+  const visibleStations = useMemo(() => {
+    const filtered = stations
+      .map((s) => ({ ...s, items: s.items.filter(matchesFilters) }))
+      .filter((s) => s.items.length > 0);
+
+    // Sorting by calories collapses the station grouping into one ranking —
+    // twenty-two separately-sorted lists would not answer "what's light here".
+    return applySort(filtered, sortMode);
+  }, [stations, matchesFilters, sortMode]);
+
+  // Station collapse is meaningless once there is only one synthetic station,
+  // and search results are already flat.
+  const grouped = sortMode === 'station';
 
   const usuals = useMemo(() => {
     if (usualIds.length === 0 || searching) return [];
@@ -149,7 +176,13 @@ export function MenuBrowser({
       });
 
       if (result.ok && result.logId) {
-        setAdded({ logId: result.logId, label: item.name, recipeId: item.id });
+        setAdded({
+          logId: result.logId,
+          label: item.name,
+          recipeId: item.id,
+          previousServings: result.previousServings ?? 0,
+          addedServings: 1,
+        });
         // The tray bar's total is resolved in the layout, so without this it
         // keeps showing the pre-add number until you navigate.
         router.refresh();
@@ -163,14 +196,65 @@ export function MenuBrowser({
     });
   }
 
+  function quickRemove(item: RecipeRow) {
+    setError(null);
+    setLogged((current) => ({
+      ...current,
+      [item.id]: Math.max(0, (current[item.id] ?? 0) - 1),
+    }));
+
+    // The undo toast holds one log id. Taking a serving off may have already
+    // deleted that row, so undoing afterwards would subtract a second time.
+    if (added?.recipeId === item.id) setAdded(null);
+
+    navigator.vibrate?.(10);
+
+    startTransition(async () => {
+      const result = await removeServing({
+        recipeId: item.id,
+        serviceDate: context.serviceDate,
+        mealPeriodName: context.mealPeriodName,
+        hallId: context.hallId,
+      });
+
+      if (result.ok) {
+        // A part serving comes off by less than the 1 assumed above — settle up
+        // before the refresh so the count never shows a wrong number at all.
+        const removed = result.removed ?? 1;
+        if (removed !== 1) {
+          setLogged((current) => ({
+            ...current,
+            [item.id]: Math.max(0, (current[item.id] ?? 0) + 1 - removed),
+          }));
+        }
+        router.refresh();
+      } else {
+        setLogged((current) => ({ ...current, [item.id]: (current[item.id] ?? 0) + 1 }));
+        setError(result.error ?? 'Could not remove that.');
+      }
+    });
+  }
+
+  /**
+   * Puts the line back the way it was before the add.
+   *
+   * An add increments an existing line rather than writing a new one, so undo
+   * can't just delete the row — that would take back every helping logged
+   * earlier, not the one tap being undone. It deletes only when the add is what
+   * created the line.
+   */
   function undo(entry: Added) {
     setAdded(null);
     setLogged((current) => ({
       ...current,
-      [entry.recipeId]: Math.max(0, (current[entry.recipeId] ?? 1) - 1),
+      [entry.recipeId]: Math.max(0, (current[entry.recipeId] ?? 0) - entry.addedServings),
     }));
     startTransition(async () => {
-      const result = await removeLog(entry.logId);
+      const result =
+        entry.previousServings > 0
+          ? await updateServings(entry.logId, entry.previousServings)
+          : await removeLog(entry.logId);
+
       if (result.ok) router.refresh();
       else setError(result.error ?? 'Could not undo that.');
     });
@@ -197,74 +281,87 @@ export function MenuBrowser({
     syncUrl({ diet: next });
   }
 
+  function updateSort(next: SortMode) {
+    setSortMode(next);
+    syncUrl({ sort: next });
+  }
+
   const rowProps = (item: RecipeRow) => ({
     item,
     servings: logged[item.id] ?? 0,
     allergensAvoid: context.allergensAvoid,
     isSignedIn: context.isSignedIn,
     onQuickAdd: () => quickAdd(item),
+    onQuickRemove: () => quickRemove(item),
     onOpenDetail: () => setDetail(item),
   });
 
   return (
     <>
       <div className="mx-auto w-full max-w-[640px] px-4">
+        {/*
+          One row, always in this shape. The field used to collapse to an icon
+          below sm, which spent a 60px band on a button that hid the thing it
+          opened — and the Filters control only existed in that collapsed
+          branch, so above sm there was no way into the filter sheet at all.
+        */}
         <div className="flex items-center gap-2 py-2">
-          {searchOpen ? (
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              <Search className="shrink-0 text-text-muted" />
-              <input
-                autoFocus
-                type="search"
-                value={query}
-                onChange={(e) => updateQuery(e.target.value)}
-                placeholder="Search this menu"
-                aria-label="Search this menu"
-                className="field-underline min-w-0 flex-1 text-input placeholder:text-text-muted"
-              />
+          <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-[10px] bg-surface-alt px-3">
+            <Search size={16} className="shrink-0 text-text-muted" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => updateQuery(e.target.value)}
+              placeholder="Search"
+              aria-label="Search this menu"
+              // 16px, not the 14px the rest of the row uses: anything smaller
+              // makes iOS zoom the page when the field takes focus.
+              className="min-w-0 flex-1 bg-transparent text-input outline-none placeholder:text-text-muted"
+            />
+            {query !== '' && (
               <button
                 type="button"
-                aria-label="Close search"
-                onClick={() => {
-                  updateQuery('');
-                  setSearchOpen(false);
-                }}
-                className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text-muted"
+                aria-label="Clear search"
+                onClick={() => updateQuery('')}
+                className="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-text-muted"
               >
-                <Close />
+                <Close size={16} />
               </button>
-            </div>
-          ) : (
-            <>
-              <button
-                type="button"
-                aria-label="Search this menu"
-                onClick={() => setSearchOpen(true)}
-                className="-ml-2.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text-muted"
-              >
-                <Search />
-              </button>
+            )}
+          </div>
 
-              <span className="flex-1" />
+          <button
+            type="button"
+            onClick={() => updateSort(nextSortMode(sortMode))}
+            aria-label={`Sort by calories. Currently ${SORT_DESCRIPTION[sortMode]}.`}
+            className={`flex h-10 shrink-0 items-center gap-1 rounded-md px-1.5 text-row font-medium ${
+              sortMode === 'station' ? 'text-text-mid' : 'text-accent-text'
+            }`}
+          >
+            <ArrowsSort size={16} />
+            {sortLabel(sortMode)}
+          </button>
 
-              <button
-                type="button"
-                onClick={() => setShowFilters(true)}
-                className="-mr-2 flex h-11 items-center gap-1.5 rounded-md px-2 text-body font-medium text-text-muted"
-              >
-                <Sliders />
-                Filters
-                {activeProps.length > 0 && (
-                  <span className="data rounded-full bg-accent px-1.5 py-0.5 text-meta text-accent-fg">
-                    {activeProps.length}
-                  </span>
-                )}
-              </button>
-            </>
-          )}
+          <button
+            type="button"
+            onClick={() => setShowFilters(true)}
+            aria-label={
+              activeProps.length > 0
+                ? `Filters. ${activeProps.length} active.`
+                : 'Filters'
+            }
+            className={`-mr-1.5 flex h-10 shrink-0 items-center gap-1 rounded-md px-1.5 text-row font-medium ${
+              activeProps.length > 0 ? 'text-accent-text' : 'text-text-mid'
+            }`}
+          >
+            <Sliders size={16} />
+            {/* The count sits inline, not in a pill of its own. A bordered
+                badge beside an icon is two shapes saying one number. */}
+            {activeProps.length > 0 && <span className="data">{activeProps.length}</span>}
+          </button>
         </div>
 
-        {activeProps.length > 0 && !searchOpen && (
+        {activeProps.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5 pb-2">
             {activeProps.map((p) => (
               <button
@@ -281,7 +378,7 @@ export function MenuBrowser({
             <button
               type="button"
               onClick={() => updateFilters([])}
-              className="h-8 rounded-full px-2 text-meta font-medium text-accent-text"
+              className="h-8 rounded-full px-2 text-meta font-medium underline underline-offset-2"
             >
               Clear all
             </button>
@@ -289,32 +386,23 @@ export function MenuBrowser({
         )}
       </div>
 
-      {(added || error) && (
+      {/*
+        An error is worth a line in the layout; a confirmation is not. The
+        undo used to share this band, so every single add pushed the whole
+        list down 53px and the row you were aiming at moved out from under
+        your thumb. It floats now — see UndoToast.
+      */}
+      {error && (
         <div
-          role="status"
-          className="mx-auto flex w-full max-w-[640px] items-center justify-between gap-3 border-b border-border px-4 pb-2 text-body"
+          role="alert"
+          className="mx-auto w-full max-w-[640px] border-b border-border px-4 pb-2 text-body font-medium text-danger"
         >
-          {error ? (
-            <span className="font-medium text-danger">{error}</span>
-          ) : (
-            <>
-              <span className="min-w-0 truncate">
-                Added <span className="font-semibold">{added!.label}</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => undo(added!)}
-                className="-mr-2 flex h-11 shrink-0 items-center rounded-md px-2 font-medium text-accent-text"
-              >
-                Undo
-              </button>
-            </>
-          )}
+          {error}
         </div>
       )}
 
       <div
-        className="mx-auto w-full max-w-[640px] px-4"
+        className="mx-auto w-full max-w-[640px] bg-surface px-4"
         style={{ paddingBottom: 'calc(var(--tab-bar-h) + var(--tray-bar-h) + 2rem)' }}
       >
         {searching ? (
@@ -323,10 +411,7 @@ export function MenuBrowser({
               title="No matches"
               body={`Nothing on this menu matches “${query.trim()}”.`}
               actionLabel="Clear search"
-              onAction={() => {
-                updateQuery('');
-                setSearchOpen(false);
-              }}
+              onAction={() => updateQuery('')}
             />
           ) : (
             <section className="mt-2">
@@ -342,7 +427,12 @@ export function MenuBrowser({
           <>
             {usuals.length > 0 && (
               <section className="mt-2">
-                <StationHead title="Your usuals" count={usuals.length} />
+                {/*
+                  No count. StationHead's number is an inventory figure — "SALAD
+                  BAR 41" — and a personalised list of five things you often eat
+                  is not an inventory of five things.
+                */}
+                <StationHead title="Your usuals" />
                 <ul>
                   {usuals.map((item) => (
                     <MenuRow key={`usual-${item.id}`} {...rowProps(item)} />
@@ -360,14 +450,14 @@ export function MenuBrowser({
               />
             ) : (
               visibleStations.map((station) => {
-                const isClosed = closed.has(station.name);
+                const isClosed = grouped && closed.has(station.name);
                 return (
                   <section key={station.name} className="mt-2">
                     <StationHead
                       title={station.name}
                       count={station.items.length}
                       collapsed={isClosed}
-                      onToggle={() => toggleStation(station.name)}
+                      onToggle={grouped ? () => toggleStation(station.name) : undefined}
                     />
 
                     {!isClosed && (
@@ -395,7 +485,7 @@ export function MenuBrowser({
                 type="button"
                 onClick={() => updateFilters([])}
                 disabled={activeProps.length === 0}
-                className="flex h-11 items-center rounded-md px-2 text-body font-medium text-accent-text disabled:opacity-40"
+                className="flex h-11 items-center rounded-md px-2 text-body font-medium underline underline-offset-2 disabled:opacity-40"
               >
                 Clear all
               </button>
@@ -429,7 +519,7 @@ export function MenuBrowser({
                       aria-hidden
                       className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border transition-colors duration-150 ease-out ${
                         on
-                          ? 'border-accent bg-accent text-accent-fg'
+                          ? 'bg-accent text-accent-fg'
                           : 'border-border-strong text-transparent'
                       }`}
                     >
@@ -449,14 +539,30 @@ export function MenuBrowser({
           context={context}
           servingsToday={logged[detail.id] ?? 0}
           onClose={() => setDetail(null)}
-          onLogged={(recipe, servings, logId) => {
+          onLogged={(recipe, servings, result) => {
             setLogged((current) => ({
               ...current,
               [recipe.id]: (current[recipe.id] ?? 0) + servings,
             }));
-            if (logId) setAdded({ logId, label: recipe.name, recipeId: recipe.id });
+            if (result.logId) {
+              setAdded({
+                logId: result.logId,
+                label: recipe.name,
+                recipeId: recipe.id,
+                previousServings: result.previousServings ?? 0,
+                addedServings: servings,
+              });
+            }
             router.refresh();
           }}
+        />
+      )}
+
+      {added && !error && (
+        <UndoToast
+          message={`Added ${added.label}`}
+          onUndo={() => undo(added)}
+          onDismiss={() => setAdded(null)}
         />
       )}
     </>
@@ -480,27 +586,36 @@ function StationHead({
   onToggle,
 }: {
   title: string;
-  count: number;
+  /** Omitted for sections where a tally would read as inventory. */
+  count?: number;
   collapsed?: boolean;
   onToggle?: () => void;
 }) {
   const inner = (
     <>
-      <h2 className="placard min-w-0 truncate">{title}</h2>
-      <span className="flex shrink-0 items-center gap-1.5 text-text-muted">
-        <span className="data text-meta">{count}</span>
+      <h2 className="section-label min-w-0 truncate text-text">{title}</h2>
+      <span className="flex shrink-0 items-center gap-1.5 text-text-faint">
+        {count !== undefined && <span className="data text-micro">{count}</span>}
+        {/* One chevron, on the right, next to the count — not a count on each
+            side of the row. */}
         {onToggle && (
           <ChevronDown
-            size={18}
-            className={`transition-transform duration-200 ease-out ${collapsed ? '' : 'rotate-180'}`}
+            size={16}
+            className={`transition-transform duration-200 ease-out motion-reduce:transition-none ${
+              collapsed ? '' : 'rotate-180'
+            }`}
           />
         )}
       </span>
     </>
   );
 
+  // -mx-4 px-4 so the band spans the screen while its text stays in the
+  // column. Sticky so the placard over the pan stays readable while the
+  // pan's contents scroll past — the masthead is deliberately not sticky to
+  // leave room for exactly this.
   const className =
-    'sticky top-0 z-10 flex w-full items-center justify-between gap-3 border-b border-text bg-bg py-2 text-left';
+    'hairline-t hairline-b sticky top-0 z-10 -mx-4 flex w-[calc(100%+2rem)] items-center justify-between gap-3 bg-surface-alt px-4 py-1.5 text-left';
 
   if (!onToggle) {
     return <div className={className}>{inner}</div>;

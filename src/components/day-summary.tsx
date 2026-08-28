@@ -16,7 +16,7 @@ function Macro({ label, value, goal }: { label: string; value: number; goal: num
           accent; the word "over" above carries the meaning. */}
       <div className="mt-1 h-px w-full bg-border">
         <div
-          className={`h-px ${over ? 'bg-text' : 'bg-accent'}`}
+          className={`h-px ${over ? 'bg-danger' : 'bg-text'}`}
           style={{ width: `${pct}%` }}
         />
       </div>

@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { totalsFor, currentStreak, rankUsuals } from './log';
+import {
+  totalsFor,
+  currentStreak,
+  rankUsuals,
+  servingsAfterRemoval,
+  groupByMealPeriod,
+} from './log';
 
 const entry = (
   servings: number,
@@ -107,5 +113,77 @@ describe('rankUsuals', () => {
 
   it('returns nothing when there is no history', () => {
     expect(rankUsuals([], onMenu)).toEqual([]);
+  });
+});
+
+describe('servingsAfterRemoval', () => {
+  it('takes one off a whole-number entry', () => {
+    expect(servingsAfterRemoval(3)).toBe(2);
+  });
+
+  it('takes one off a part serving without going negative', () => {
+    expect(servingsAfterRemoval(2.5)).toBe(1.5);
+    expect(servingsAfterRemoval(1.5)).toBe(0.5);
+  });
+
+  // A 1x row can't be updated to 0 — the DB check constraint rejects it — so
+  // the caller has to delete instead.
+  it('signals deletion at exactly one serving', () => {
+    expect(servingsAfterRemoval(1)).toBeNull();
+  });
+
+  it('signals deletion for anything under one serving', () => {
+    expect(servingsAfterRemoval(0.5)).toBeNull();
+    expect(servingsAfterRemoval(0.25)).toBeNull();
+  });
+});
+
+describe('groupByMealPeriod', () => {
+  const at = (period: string | null, id: number) => ({ meal_period_name: period, id });
+
+  it('orders meals by when they happen, not when they were logged', () => {
+    const groups = groupByMealPeriod([at('Dinner', 1), at('Breakfast', 2), at('Lunch', 3)]);
+    expect(groups.map((g) => g.period)).toEqual(['Breakfast', 'Lunch', 'Dinner']);
+  });
+
+  it('keeps every entry of a meal together, in the order given', () => {
+    const groups = groupByMealPeriod([at('Lunch', 1), at('Dinner', 2), at('Lunch', 3)]);
+    expect(groups[0].entries.map((e) => e.id)).toEqual([1, 3]);
+    expect(groups[1].entries.map((e) => e.id)).toEqual([2]);
+  });
+
+  // Nothing on the menu screen writes a null period, but rows predating the
+  // meal-period column exist and shouldn't be dropped or sorted into a meal.
+  it('sorts entries with no meal period last, under Other', () => {
+    const groups = groupByMealPeriod([at(null, 1), at('Breakfast', 2)]);
+    expect(groups.map((g) => g.period)).toEqual(['Breakfast', 'Other']);
+  });
+
+  it('puts periods it does not know about after the ones it does', () => {
+    const groups = groupByMealPeriod([at('Midnight Breakfast', 1), at('Dinner', 2)]);
+    expect(groups.map((g) => g.period)).toEqual(['Dinner', 'Midnight Breakfast']);
+  });
+
+  it('returns nothing for an empty day', () => {
+    expect(groupByMealPeriod([])).toEqual([]);
+  });
+});
+
+describe('groupByMealPeriod, against UNC’s real period names', () => {
+  const at = (period: string) => ({ meal_period_name: period });
+
+  // Chase publishes six services a day. "Late Lunch" and "Late Dinner" sit
+  // mid-sequence, not at the end, so they have to be named explicitly rather
+  // than left to the unknown-period fallback.
+  it('orders all six services correctly', () => {
+    const shuffled = ['Late Night', 'Lunch', 'Late Dinner', 'Breakfast', 'Dinner', 'Late Lunch'];
+    expect(groupByMealPeriod(shuffled.map(at)).map((g) => g.period)).toEqual([
+      'Breakfast',
+      'Lunch',
+      'Late Lunch',
+      'Dinner',
+      'Late Dinner',
+      'Late Night',
+    ]);
   });
 });

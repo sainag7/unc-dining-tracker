@@ -3,7 +3,7 @@
 import { ThemeProvider as NextThemes, useTheme } from 'next-themes';
 
 /* Kept in step with --bg in globals.css. */
-const BAR_COLOR = { light: '#f5f7f8', dark: '#0d1117' } as const;
+const BAR_COLOR = { light: '#f6f8fb', dark: '#0a0f1a' } as const;
 
 /**
  * Keeps the mobile browser chrome in step with the theme.

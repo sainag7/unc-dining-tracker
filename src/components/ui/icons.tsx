@@ -64,6 +64,12 @@ export const Plus = (p: IconProps) => (
   </Svg>
 );
 
+export const Minus = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5 12h14" />
+  </Svg>
+);
+
 export const Check = (p: IconProps) => (
   <Svg {...p}>
     <path d="M20 6L9 17l-5-5" />
@@ -83,6 +89,13 @@ export const Sliders = (p: IconProps) => (
     <circle cx="16" cy="6" r="2" />
     <circle cx="10" cy="12" r="2" />
     <circle cx="16" cy="18" r="2" />
+  </Svg>
+);
+
+/** Two arrows head-to-tail — the sort control. */
+export const ArrowsSort = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3" />
   </Svg>
 );
 

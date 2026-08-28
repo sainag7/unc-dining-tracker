@@ -7,8 +7,8 @@ export type Segment = {
   value: string;
   label: string;
   href: string;
-  /** Rendered after the label as a quiet pill — used for "now". */
-  badge?: string;
+  /** A small accent dot after the label. Means "being served right now". */
+  dot?: boolean;
 };
 
 /**
@@ -80,15 +80,24 @@ export function SegmentedControl({
             role="tab"
             aria-selected={active}
             data-active={active}
-            className={`flex h-11 shrink-0 items-center gap-1.5 rounded-sm px-3 text-body font-medium whitespace-nowrap transition-colors duration-150 ease-out ${
-              active ? 'text-text' : 'text-text-muted'
+            className={`flex h-11 shrink-0 items-center gap-[5px] rounded-sm px-3 text-body whitespace-nowrap transition-colors duration-150 ease-out ${
+              active ? 'font-semibold text-text' : 'font-medium text-text-muted'
             }`}
           >
             {s.label}
-            {s.badge && (
-              <span className="placard rounded-sm bg-accent px-1.5 py-0.5 text-accent-fg">
-                {s.badge}
-              </span>
+            {/*
+              A 5px dot, not a filled NOW pill. The pill was a second loud
+              accent mark sitting beside the accent underline — on the common
+              case where the period being served is also the one selected, two
+              signals said the same thing, and when they diverged (browsing
+              lunch at 6pm) it was ambiguous which one meant "selected".
+              Selection is the underline; the dot is only ever "serving now".
+            */}
+            {s.dot && (
+              <span
+                aria-hidden
+                className="h-[5px] w-[5px] shrink-0 rounded-full bg-accent"
+              />
             )}
           </Link>
         );

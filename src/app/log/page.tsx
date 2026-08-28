@@ -68,7 +68,7 @@ export default async function LogPage(props: PageProps<'/log'>) {
           </div>
           <Link
             href="/settings"
-            className="-mr-2 flex h-11 shrink-0 items-center rounded-md px-2 text-body font-medium text-accent-text"
+            className="-mr-2 flex h-11 shrink-0 items-center rounded-md px-2 text-body font-medium underline underline-offset-2"
           >
             Settings
           </Link>

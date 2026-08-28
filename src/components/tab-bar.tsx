@@ -19,12 +19,18 @@ export function TabBar() {
   const onLog = pathname.startsWith('/log');
 
   return (
+    // Full-bleed outer so the rule and the surface span the window; the tabs
+    // themselves sit in the same 640px column as everything above them.
+    // Before this they landed at 25% and 75% of the viewport, nowhere near
+    // the content they navigate.
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-2 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]"
+      className="hairline-t fixed inset-x-0 bottom-0 z-40 bg-surface pb-[env(safe-area-inset-bottom)]"
     >
-      <Tab href="/" label="Menus" icon={<Tray />} active={!onLog} />
-      <Tab href="/log" label="Log" icon={<ListIcon />} active={onLog} />
+      <div className="mx-auto grid w-full max-w-[640px] grid-cols-2">
+        <Tab href="/" label="Menus" icon={<Tray size={18} />} active={!onLog} />
+        <Tab href="/log" label="Log" icon={<ListIcon size={18} />} active={onLog} />
+      </div>
     </nav>
   );
 }
@@ -44,13 +50,12 @@ function Tab({
     <Link
       href={href}
       aria-current={active ? 'page' : undefined}
-      className={`flex flex-col items-center justify-center gap-0.5 transition-colors duration-150 ease-out ${
+      className={`flex flex-col items-center gap-1 pt-[9px] pb-[13px] transition-colors duration-150 ease-out ${
         active ? 'text-accent-text' : 'text-text-muted'
       }`}
-      style={{ height: 'var(--tab-bar-h)' }}
     >
       {icon}
-      <span className="text-meta font-medium">{label}</span>
+      <span className={`text-micro ${active ? 'font-semibold' : 'font-medium'}`}>{label}</span>
     </Link>
   );
 }

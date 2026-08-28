@@ -95,7 +95,7 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
                 aria-pressed={on}
                 className={`on-accent flex h-11 items-center rounded-full border px-4 text-body transition-colors duration-150 ease-out ${
                   on
-                    ? 'border-accent bg-accent font-medium text-accent-fg'
+                    ? 'bg-accent font-medium text-accent-fg'
                     : 'border-border-strong text-text-muted'
                 }`}
               >
@@ -135,7 +135,7 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
       </section>
 
       {status && (
-        <p role="status" className="text-body font-medium text-accent-text">
+        <p role="status" className="text-body font-medium">
           {status}
         </p>
       )}

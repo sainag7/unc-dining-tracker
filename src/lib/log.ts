@@ -72,19 +72,34 @@ export async function getDayLog(
 }
 
 /**
- * Total servings logged per recipe on a date, so menu rows can show what's
- * already been added today without a second round trip per row.
+ * Total servings logged per recipe for one hall and meal period, so menu rows
+ * can show what's already been added without a round trip per row.
+ *
+ * Scoped to the hall and period on screen, not just the date. Filtering by date
+ * alone made a dinner menu badge an item with the servings eaten at breakfast,
+ * and put a count on the button that no control on that screen could take off.
+ * The scope here is the same slot key `logFood` collapses on.
  */
 export async function getLoggedServingsByRecipe(
   db: Db,
   userId: string,
   serviceDate: string,
+  mealPeriodName: string | null,
+  hallId: number | null,
 ): Promise<Map<number, number>> {
-  const { data, error } = await db
+  let query = db
     .from('food_log')
     .select('recipe_id, servings')
     .eq('user_id', userId)
     .eq('service_date', serviceDate);
+
+  // Postgres `= null` never matches; the nullable halves of the key need `is`.
+  query = mealPeriodName === null
+    ? query.is('meal_period_name', null)
+    : query.eq('meal_period_name', mealPeriodName);
+  query = hallId === null ? query.is('hall_id', null) : query.eq('hall_id', hallId);
+
+  const { data, error } = await query;
 
   if (error) throw new Error(`Failed to load today's log: ${error.message}`);
 
@@ -93,6 +108,74 @@ export async function getLoggedServingsByRecipe(
     byRecipe.set(row.recipe_id, (byRecipe.get(row.recipe_id) ?? 0) + row.servings);
   }
   return byRecipe;
+}
+
+/**
+ * The order meals happen in, which is not the order they get logged in.
+ *
+ * Grouping used to key a `Map` in insertion order, so a breakfast item added
+ * after dinner sorted last and the day read out of sequence.
+ */
+const MEAL_PERIOD_ORDER = [
+  'Breakfast',
+  'Brunch',
+  'Lunch',
+  'Late Lunch',
+  'Dinner',
+  'Late Dinner',
+  'Late Night',
+];
+
+/** Entries with no meal period recorded. Always sorts last. */
+export const OTHER_MEAL = 'Other';
+
+export interface MealGroup<T> {
+  period: string;
+  entries: T[];
+}
+
+/**
+ * Splits a day into meal periods, in the order the meals happen.
+ *
+ * Periods UNC names something we don't know about keep their position relative
+ * to each other and sit after the known ones, so a renamed service degrades to
+ * "somewhere sensible" rather than disappearing.
+ *
+ * Pure so the ordering can be tested without a database.
+ */
+export function groupByMealPeriod<T extends { meal_period_name: string | null }>(
+  entries: T[],
+): MealGroup<T>[] {
+  const groups = new Map<string, T[]>();
+  for (const entry of entries) {
+    const key = entry.meal_period_name ?? OTHER_MEAL;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(entry);
+  }
+
+  const rank = (period: string) => {
+    if (period === OTHER_MEAL) return Number.MAX_SAFE_INTEGER;
+    const known = MEAL_PERIOD_ORDER.indexOf(period);
+    return known === -1 ? MEAL_PERIOD_ORDER.length : known;
+  };
+
+  return [...groups]
+    .map(([period, items]) => ({ period, entries: items }))
+    .sort((a, b) => rank(a.period) - rank(b.period));
+}
+
+/**
+ * What one entry becomes when a serving is taken off it, or null when the row
+ * should be deleted outright.
+ *
+ * A 1× row can't be decremented to zero: both `updateServings` and the
+ * `servings > 0` check constraint reject it. So taking one away from anything at
+ * or below a single serving means removing the entry, not shrinking it.
+ *
+ * Pure so the rule can be tested without a database.
+ */
+export function servingsAfterRemoval(servings: number): number | null {
+  return servings > 1 ? servings - 1 : null;
 }
 
 /**

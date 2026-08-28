@@ -141,7 +141,7 @@ export function LoginForm({ initialError }: { initialError: string | null }) {
             setError(null);
             setNotice(null);
           }}
-          className="-ml-2 mt-4 flex h-11 items-center rounded-md px-2 text-body font-medium text-accent-text"
+          className="-ml-2 mt-4 flex h-11 items-center rounded-md px-2 text-body font-medium underline underline-offset-2"
         >
           Back to sign in
         </button>
@@ -241,7 +241,7 @@ export function LoginForm({ initialError }: { initialError: string | null }) {
               setError(null);
               setNotice(null);
             }}
-            className="font-semibold text-accent-text underline underline-offset-2"
+            className="font-semibold underline underline-offset-2"
           >
             {mode === 'signin' ? 'Create one' : 'Sign in'}
           </button>
@@ -250,7 +250,7 @@ export function LoginForm({ initialError }: { initialError: string | null }) {
 
       <Link
         href="/"
-        className="mt-6 flex h-11 items-center border-t border-border text-body font-medium text-accent-text"
+        className="mt-6 flex h-11 items-center border-t border-border text-body font-medium underline underline-offset-2"
       >
         Browse the menu without an account
       </Link>

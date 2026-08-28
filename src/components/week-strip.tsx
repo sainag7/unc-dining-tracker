@@ -40,7 +40,7 @@ export function WeekStrip({
             href={`/log?date=${date}`}
             aria-current={isSelected ? 'page' : undefined}
             className={`flex-1 rounded-sm border-t-2 pt-2 pb-1.5 text-center transition-colors duration-150 ease-out ${
-              isSelected ? 'border-accent' : 'border-border'
+              isSelected ? 'border-text' : 'border-border'
             }`}
           >
             <span
@@ -58,7 +58,7 @@ export function WeekStrip({
             <span
               aria-hidden
               className={`mx-auto mt-1 block h-1 w-1 rounded-full ${
-                hasEntries ? 'bg-accent' : 'bg-transparent'
+                hasEntries ? 'bg-text' : 'bg-transparent'
               }`}
             />
             <span className="sr-only">

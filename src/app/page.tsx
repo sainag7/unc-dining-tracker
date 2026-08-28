@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { getHalls, getMealPeriods, getStations } from '@/lib/menu';
 import { getProfile, getLoggedServingsByRecipe, getUsualRecipeIds } from '@/lib/log';
+import { tolerate } from '@/lib/tolerate';
 import { campusToday, currentMealPeriodIndex, servingMealPeriodIndex } from '@/lib/dates';
 import { MenuMasthead } from '@/components/menu-masthead';
 import { MenuBrowser } from '@/components/menu-browser';
@@ -32,30 +33,56 @@ export default async function MenusPage(props: PageProps<'/'>) {
   const servingNowPeriod =
     date === today ? (periods[servingMealPeriodIndex(periods)]?.name ?? null) : null;
 
+  // On another day there is no "now" to fall forward from, so this used to
+  // pick index 0 — every backfilled meal got tagged Breakfast whatever time it
+  // was actually eaten, which then mis-sorted the whole day in the log.
+  // currentMealPeriodIndex is already forgiving; letting it answer for any date
+  // lands on the period matching the time of day instead.
   const requested = param('period');
   const period =
-    periods.find((p) => p.name === requested) ??
-    periods[date === today ? currentMealPeriodIndex(periods) : 0] ??
-    null;
+    periods.find((p) => p.name === requested) ?? periods[currentMealPeriodIndex(periods)] ?? null;
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [stations, profile, loggedMap] = await Promise.all([
+  // getStations is the menu itself — if that fails the page has nothing to say,
+  // so it still throws up to error.tsx. The two personal reads degrade instead:
+  // rows fall back to a plain +, which is exactly the signed-out rendering. No
+  // notice here — these use the same token as the layout's tray read, so they
+  // fail together and TrayNotice already says so once.
+  const [stations, profile, loggedServings] = await Promise.all([
     period ? getStations(supabase, period.id) : Promise.resolve([]),
     user ? getProfile(supabase, user.id) : Promise.resolve(null),
     user
-      ? getLoggedServingsByRecipe(supabase, user.id, date)
-      : Promise.resolve(new Map<number, number>()),
+      ? tolerate(
+          () =>
+            getLoggedServingsByRecipe(
+              supabase,
+              user.id,
+              date,
+              period?.name ?? null,
+              hall?.id ?? null,
+            ),
+          new Map<number, number>(),
+          "today's logged servings",
+        )
+      : Promise.resolve({ data: new Map<number, number>(), failed: false }),
   ]);
+  const loggedMap = loggedServings.data;
 
   // Usuals need the menu first, since they're only worth showing for food
   // that's actually being served right now.
   const onMenu = new Set(stations.flatMap((s) => s.items.map((i) => i.id)));
   const usualIds =
     user && hall && period
-      ? await getUsualRecipeIds(supabase, user.id, hall.id, period.name, onMenu)
+      ? (
+          await tolerate(
+            () => getUsualRecipeIds(supabase, user.id, hall.id, period.name, onMenu),
+            [] as number[],
+            'usuals',
+          )
+        ).data
       : [];
 
   return (

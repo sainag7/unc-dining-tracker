@@ -7,14 +7,17 @@
   hand, and a number that has to be readable while you're standing up holding
   a phone in one hand. Type and rules do the work. Almost nothing is a card.
 
-  One accent, and it is Carolina blue. It carries exactly four things:
-  the active tab, the add button's filled state, focus rings, and the tray
-  total. It is not a theme — if it starts showing up anywhere else, that's a
-  bug.
+  One accent, and it is Carolina blue — #4b9cd3, the university colour, the
+  same value in both modes. It carries exactly four things: the active tab,
+  the add button's filled state, focus rings, and the tray total. It is not a
+  theme — if it starts showing up anywhere else, that's a bug.
 
-  Every colour below was checked against its own background. The ratios are
-  recorded in DESIGN.md; the short version is that --text-muted is the one
-  that used to fail (2.67:1) and now doesn't.
+  Every colour below was checked against its own background by
+  `npm run check-contrast`, which covers 26 pairs and exits non-zero on
+  failure. The ratios are recorded in DESIGN.md.
+
+  The greys are mixed from the navy hue (#13294b) rather than being neutral.
+  That's what makes the app read as UNC without turning it blue.
 */
 
 /* next-themes writes .dark on <html>, so the variant has to follow the class
@@ -22,31 +25,56 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --bg: #f5f7f8;
+  --bg: #f5f7fa;
   --surface: #ffffff;
+  /* The ground under section headers, the search field, and the tray bar. */
+  --surface-alt: #edf1f6;
 
   /* Hairline between rows. Decorative — it doesn't have to clear 3:1. */
-  --border: #e2e6e9;
-  /* Outlines that are part of a control. This one does have to clear 3:1. */
-  --border-strong: #83909d;
+  --border: #e2e8f0;
+  --border-soft: #edf1f6;
+  /* Outlines that are part of a control — the quantity-0 ghost button. */
+  --border-strong: #c6d0de;
 
-  --text: #101418;
-  --text-muted: #5b6772;
+  /* Navy as body text, not a neutral near-black, and every grey below mixed
+     from the same hue. That hue shift is what makes this read as UNC rather
+     than a generic app with a blue button in it.
 
-  /* Carolina as a fill. --accent-text is the same hue pushed dark enough to
-     be read as text; you can't ask one value to do both jobs. */
-  --accent: #3e95cc;
-  --accent-fg: #0b1620;
-  --accent-text: #0b6fa8;
+     All four steps clear 4.5:1, which makes them closer together than a grey
+     ladder usually is. That is deliberate: hierarchy here is carried by weight
+     and size, not by fading text out until it stops being readable. */
+  --text: #13294b;
+  --text-mid: #3d5175;
+  --text-muted: #4f6079;
+  --text-faint: #5a6b85;
+
+  /* Carolina is a FILL, never text on a light ground: it measures 3.00:1 on
+     pure white, which is the ceiling. Navy sits on top of it. --accent-text
+     is the one blue that reads as text here, at 4.60:1. */
+  --accent: #4b9cd3;
+  --accent-fg: #13294b;
+  --accent-text: #2e7baf;
+
+  /* A row with something on the tray. */
+  --row-active: #f0f7fc;
 
   --danger: #a8221b;
-  --danger-bg: #f7e5e3;
+  --danger-bg: #f6e3e1;
 
-  --shadow-sheet: 0 -10px 44px rgb(16 20 24 / 0.18);
+  --shadow-sheet: 0 -10px 44px rgb(19 41 75 / 0.18);
 
-  /* Heights of the two fixed bars, so content can clear both. */
-  --tab-bar-h: 3.5rem;
-  --tray-bar-h: 3.25rem;
+  /*
+    Heights of the two fixed bars, so content above can clear both.
+
+    Both bars now size themselves from their padding rather than reading these
+    back, so these have to be kept in step by hand:
+      tab bar  9 + 18 icon + 4 gap + 15 label + 13 + 1 rule = 60
+      tray bar 8 + 18 + 15 + 8                      + 1 rule = 50
+    Get one wrong and the list's bottom padding either clips the last row or
+    leaves a gap under it.
+  */
+  --tab-bar-h: 3.75rem;
+  --tray-bar-h: 3.125rem;
 
   --dur-fast: 150ms;
   --dur-base: 200ms;
@@ -56,23 +84,33 @@
 }
 
 .dark {
-  --bg: #0d1117;
-  --surface: #151b23;
+  /* Navy-tinted near-black, not #000 — the same hue as the body text in
+     light mode. --surface matches --bg; --surface-alt is what lifts the
+     section headers and the tray bar off the list. */
+  --bg: #0a0f1a;
+  --surface: #0a0f1a;
+  --surface-alt: #0e1522;
 
-  --border: #232b35;
-  --border-strong: #5c6975;
+  --border: #1b2536;
+  --border-soft: #161f2e;
+  --border-strong: #28344a;
 
-  --text: #e6eaee;
-  --text-muted: #97a3af;
+  --text: #eaf0f7;
+  --text-mid: #c7d3e1;
+  --text-muted: #93a3ba;
+  --text-faint: #7c8eab;
 
-  /* Carolina does not invert. The brand colour staying put across modes is
-     the whole point — the old --navy flipped from near-black to pale blue. */
+  /* Carolina does not invert. It is the same #4b9cd3 in both modes — the
+     brand colour staying put is the whole point. On this ground it clears
+     4.5:1 unaided (6.38), so here it is also the readable blue. */
   --accent: #4b9cd3;
-  --accent-fg: #08111a;
-  --accent-text: #7fbee8;
+  --accent-fg: #0a2b45;
+  --accent-text: #4b9cd3;
+
+  --row-active: #0e1725;
 
   --danger: #f0897f;
-  --danger-bg: #2c1513;
+  --danger-bg: #2a1518;
 
   --shadow-sheet: 0 -10px 44px rgb(0 0 0 / 0.55);
 }
@@ -80,10 +118,15 @@
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
   --color-border: var(--border);
+  --color-border-soft: var(--border-soft);
   --color-border-strong: var(--border-strong);
   --color-text: var(--text);
+  --color-text-mid: var(--text-mid);
   --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-row-active: var(--row-active);
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
   --color-accent-text: var(--accent-text);
@@ -101,12 +144,20 @@
     --text-input is 16px because anything smaller makes iOS zoom the page
     when the field takes focus.
   */
+  --text-micro: 0.6875rem;
+  --text-micro--line-height: 0.9375rem;
   --text-meta: 0.75rem;
   --text-meta--line-height: 1rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.125rem;
+  --text-row: 0.875rem;
+  --text-row--line-height: 1.25rem;
   --text-body: 0.9375rem;
   --text-body--line-height: 1.25rem;
   --text-input: 1rem;
   --text-input--line-height: 1.5rem;
+  --text-total: 1.25rem;
+  --text-total--line-height: 1.5rem;
   --text-data-lg: 1.375rem;
   --text-data-lg--line-height: 1.5rem;
   --text-display: 1.75rem;
@@ -127,6 +178,13 @@ html {
   /* Makes native scrollbars, number spinners and the search field's clear
      button follow the theme. Without it they render light on dark. */
   color-scheme: light;
+
+  /* Reserve the scrollbar's width whether or not one is showing. Without it a
+     classic scrollbar takes ~15px off the layout viewport, mx-auto recentres
+     the column inside what's left, and the centred content drifts left of the
+     fixed bars — which position against the initial containing block and
+     don't move. The drift appeared and vanished with menu length. */
+  scrollbar-gutter: stable;
 }
 html.dark {
   color-scheme: dark;
@@ -153,18 +211,52 @@ body {
 
 /* Every figure the reader compares to another figure. Tabular so a column of
    calories lines up on the decimal even when the digits change. */
+/*
+  Hairlines.
+
+  0.5px is a real hairline on a 2x screen and rounds to 1px on a 1x one, which
+  is the right degradation: the alternative, a 1px rule everywhere, is visibly
+  heavy on the phone this is designed for. Named rather than repeated as
+  border-[0.5px] at thirty call sites.
+*/
+.hairline-t {
+  border-top: 0.5px solid var(--border);
+}
+.hairline-b {
+  border-bottom: 0.5px solid var(--border);
+}
+.hairline-row {
+  border-bottom: 0.5px solid var(--border-soft);
+}
+
+/*
+  The placard over the pan. Distinct from .placard, which is 12px/0.08em and
+  still carries the tray sheet and the log's meal headings.
+*/
+.section-label {
+  font-size: var(--text-micro);
+  line-height: var(--text-micro--line-height);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
 .data {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
+  /* Tabular figures are wide by construction, so a column of them reads as a
+     row of glyphs rather than a number. This pulls them back together without
+     costing the alignment that made them tabular in the first place. */
+  letter-spacing: -0.01em;
 }
 
 /* The venue wordmark. */
 .wordmark {
   font-size: var(--text-display);
   line-height: 2rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  letter-spacing: -0.03em;
 }
 
 /* Inputs are underlines, not boxes — the one idiom worth keeping from the

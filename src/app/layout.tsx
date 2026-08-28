@@ -2,10 +2,11 @@ import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { createClient } from '@/lib/supabase/server';
 import { getDayLog, totalsFor } from '@/lib/log';
+import { tolerate } from '@/lib/tolerate';
 import { campusToday } from '@/lib/dates';
 import { ThemeProvider } from '@/components/theme-provider';
 import { TabBar } from '@/components/tab-bar';
-import { TrayBar } from '@/components/tray-bar';
+import { TrayBar, TrayNotice } from '@/components/tray-bar';
 import './globals.css';
 
 const geist = Geist({
@@ -45,7 +46,12 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const entries = user ? await getDayLog(supabase, user.id, campusToday()) : null;
+  // Tolerated rather than awaited outright: this is the root layout, so a throw
+  // here escapes error.tsx and 500s every route in the app — including the menu,
+  // which doesn't need a session at all.
+  const tray = user
+    ? await tolerate(() => getDayLog(supabase, user.id, campusToday()), [], 'day log')
+    : null;
 
   return (
     // suppressHydrationWarning: next-themes writes the class on <html> before
@@ -60,7 +66,13 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
           {children}
           {/* Signed out there is no tray, so the bar would be an empty
               promise — the row's + becomes a sign-in link instead. */}
-          {entries && <TrayBar entries={entries} calories={totalsFor(entries).calories} />}
+          {/* Signed out there is no tray. Signed in but unreadable is a third
+              state, and it has to look different from an empty tray — that
+              would quietly claim you hadn't eaten anything today. */}
+          {tray && !tray.failed && (
+            <TrayBar entries={tray.data} calories={totalsFor(tray.data).calories} />
+          )}
+          {tray?.failed && <TrayNotice />}
           <TabBar />
         </ThemeProvider>
       </body>

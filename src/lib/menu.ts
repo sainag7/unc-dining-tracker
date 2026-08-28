@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { toHHMM } from './dates';
 import type { Database, DiningHallRow, RecipeRow } from './supabase/database.types';
 
 export type Db = SupabaseClient<Database>;
@@ -69,8 +70,10 @@ export async function getMealPeriods(
     id: p.id,
     name: p.name,
     timeLabel: p.time_label,
-    startTime: p.start_time,
-    endTime: p.end_time,
+    // Postgres hands back "15:00:00"; everything downstream compares
+    // against campusTimeOfDay(), which is "15:00". See toHHMM.
+    startTime: toHHMM(p.start_time),
+    endTime: toHHMM(p.end_time),
   }));
 }
 
