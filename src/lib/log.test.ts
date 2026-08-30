@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   totalsFor,
   currentStreak,
-  rankUsuals,
   servingsAfterRemoval,
   groupByMealPeriod,
+  goalProgress,
 } from './log';
 
 const entry = (
@@ -80,42 +80,6 @@ describe('currentStreak', () => {
   });
 });
 
-describe('rankUsuals', () => {
-  const onMenu = new Set([1, 2, 3]);
-  const row = (recipe_id: number, logged_at: string) => ({ recipe_id, logged_at });
-
-  it('orders by how often something was logged', () => {
-    const rows = [
-      row(1, '2026-08-01T12:00:00Z'),
-      row(2, '2026-08-01T12:00:00Z'),
-      row(2, '2026-08-02T12:00:00Z'),
-      row(2, '2026-08-03T12:00:00Z'),
-      row(3, '2026-08-01T12:00:00Z'),
-      row(3, '2026-08-02T12:00:00Z'),
-    ];
-    expect(rankUsuals(rows, onMenu)).toEqual([2, 3, 1]);
-  });
-
-  it('drops picks that are not on the menu right now', () => {
-    const rows = [row(99, '2026-08-01T12:00:00Z'), row(1, '2026-08-01T12:00:00Z')];
-    expect(rankUsuals(rows, onMenu)).toEqual([1]);
-  });
-
-  it('breaks ties toward the more recent pick', () => {
-    const rows = [row(1, '2026-08-01T12:00:00Z'), row(2, '2026-08-09T12:00:00Z')];
-    expect(rankUsuals(rows, onMenu)).toEqual([2, 1]);
-  });
-
-  it('respects the limit', () => {
-    const rows = [row(1, '2026-08-01T12:00:00Z'), row(2, '2026-08-01T12:00:00Z')];
-    expect(rankUsuals(rows, onMenu, 1)).toHaveLength(1);
-  });
-
-  it('returns nothing when there is no history', () => {
-    expect(rankUsuals([], onMenu)).toEqual([]);
-  });
-});
-
 describe('servingsAfterRemoval', () => {
   it('takes one off a whole-number entry', () => {
     expect(servingsAfterRemoval(3)).toBe(2);
@@ -185,5 +149,51 @@ describe('groupByMealPeriod, against UNC’s real period names', () => {
       'Late Dinner',
       'Late Night',
     ]);
+  });
+});
+
+describe('groupByMealPeriod, weekend services', () => {
+  const at = (period: string) => ({ meal_period_name: period });
+
+  // Chase runs Continental 9-11am then Brunch 11am-3pm on weekends. Continental
+  // was absent from MEAL_PERIOD_ORDER, so it fell into the unknown bucket and a
+  // Saturday morning sorted after Late Night.
+  it('places Continental between Breakfast and Brunch', () => {
+    const shuffled = ['Late Night', 'Brunch', 'Continental', 'Breakfast'];
+    expect(groupByMealPeriod(shuffled.map(at)).map((g) => g.period)).toEqual([
+      'Breakfast',
+      'Continental',
+      'Brunch',
+      'Late Night',
+    ]);
+  });
+});
+
+describe('goalProgress', () => {
+  it('reports nothing eaten as nothing', () => {
+    expect(goalProgress(0, 2000)).toEqual({ pct: 0, over: false });
+  });
+
+  it('reports partway through', () => {
+    expect(goalProgress(500, 2000).pct).toBe(25);
+    expect(goalProgress(840, 2000).pct).toBe(42);
+  });
+
+  // Exactly on the goal is met, not exceeded — the ring closes but stays accent.
+  it('treats exactly the goal as met, not over', () => {
+    expect(goalProgress(2000, 2000)).toEqual({ pct: 100, over: false });
+  });
+
+  it('clamps past the goal and flags it instead', () => {
+    expect(goalProgress(2600, 2000)).toEqual({ pct: 100, over: true });
+    expect(goalProgress(99999, 2000).pct).toBe(100);
+  });
+
+  // Without the guard these produce Infinity or NaN, and an arc drawn from
+  // Infinity silently disappears rather than erroring.
+  it('survives a goal of zero or less', () => {
+    expect(goalProgress(500, 0)).toEqual({ pct: 0, over: false });
+    expect(goalProgress(500, -1)).toEqual({ pct: 0, over: false });
+    expect(goalProgress(0, 0)).toEqual({ pct: 0, over: false });
   });
 });

@@ -118,6 +118,9 @@ export async function getLoggedServingsByRecipe(
  */
 const MEAL_PERIOD_ORDER = [
   'Breakfast',
+  // Weekends only, 9-11am, ahead of Brunch. It was missing here until live
+  // weekend data turned it up, which put a Saturday morning after Late Night.
+  'Continental',
   'Brunch',
   'Lunch',
   'Late Lunch',
@@ -164,6 +167,32 @@ export function groupByMealPeriod<T extends { meal_period_name: string | null }>
     .sort((a, b) => rank(a.period) - rank(b.period));
 }
 
+export interface GoalProgress {
+  /** 0-100, clamped. The overshoot lives in `over`, not here. */
+  pct: number;
+  over: boolean;
+}
+
+/**
+ * How far through a goal a number is.
+ *
+ * Two visualisations depend on this now — the macro hairlines on the log screen
+ * and the plate ring on the tray bar — so the rule lives in one place rather
+ * than being written twice and drifting.
+ *
+ * The clamp is what stops the ring winding past a full turn; `over` carries the
+ * overshoot instead. The `goal > 0` guard is what stops a zero or unset goal
+ * producing Infinity.
+ *
+ * Pure so both callers can be tested without a database or a render.
+ */
+export function goalProgress(value: number, goal: number): GoalProgress {
+  return {
+    pct: goal > 0 ? Math.min(100, (value / goal) * 100) : 0,
+    over: goal > 0 && value > goal,
+  };
+}
+
 /**
  * What one entry becomes when a serving is taken off it, or null when the row
  * should be deleted outright.
@@ -176,69 +205,6 @@ export function groupByMealPeriod<T extends { meal_period_name: string | null }>
  */
 export function servingsAfterRemoval(servings: number): number | null {
   return servings > 1 ? servings - 1 : null;
-}
-
-/**
- * Orders past picks by how often they were logged, keeping only what's on the
- * menu right now. Ties break toward the more recent pick, so a habit that's
- * been dropped drifts down the list.
- *
- * Pure so the ranking can be tested without a database.
- */
-export function rankUsuals(
-  rows: Array<{ recipe_id: number; logged_at: string }>,
-  onMenu: Set<number>,
-  limit = 8,
-): number[] {
-  const stats = new Map<number, { count: number; last: string }>();
-
-  for (const row of rows) {
-    if (!onMenu.has(row.recipe_id)) continue;
-    const current = stats.get(row.recipe_id);
-    if (current) {
-      current.count++;
-      if (row.logged_at > current.last) current.last = row.logged_at;
-    } else {
-      stats.set(row.recipe_id, { count: 1, last: row.logged_at });
-    }
-  }
-
-  return [...stats.entries()]
-    .sort((a, b) => b[1].count - a[1].count || b[1].last.localeCompare(a[1].last))
-    .slice(0, limit)
-    .map(([recipeId]) => recipeId);
-}
-
-/**
- * What this user usually eats at this hall and meal period.
- *
- * Scoped to the last 90 days so a habit from last semester doesn't outrank
- * this month's, and intersected with the current menu so nothing unservable
- * is suggested.
- */
-export async function getUsualRecipeIds(
-  db: Db,
-  userId: string,
-  hallId: number,
-  mealPeriodName: string,
-  onMenu: Set<number>,
-  limit = 8,
-): Promise<number[]> {
-  if (onMenu.size === 0) return [];
-
-  const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
-  const { data, error } = await db
-    .from('food_log')
-    .select('recipe_id, logged_at')
-    .eq('user_id', userId)
-    .eq('hall_id', hallId)
-    .eq('meal_period_name', mealPeriodName)
-    .gte('service_date', since);
-
-  if (error) throw new Error(`Failed to load usuals: ${error.message}`);
-
-  return rankUsuals(data ?? [], onMenu, limit);
 }
 
 export async function getProfile(db: Db, userId: string): Promise<ProfileRow | null> {

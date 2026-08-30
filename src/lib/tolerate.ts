@@ -1,7 +1,7 @@
 /**
  * A read the page is allowed to lose.
  *
- * Personalization — the tray, today's counts, usuals — is an enhancement on top
+ * Personalization — the tray, today's counts — is an enhancement on top
  * of the menu. The menu is the product, and it works signed out, so nothing
  * about a user's own data failing to load should be able to take it down.
  *

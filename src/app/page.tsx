@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { getHalls, getMealPeriods, getStations } from '@/lib/menu';
-import { getProfile, getLoggedServingsByRecipe, getUsualRecipeIds } from '@/lib/log';
+import { getProfile, getLoggedServingsByRecipe } from '@/lib/log';
 import { tolerate } from '@/lib/tolerate';
 import { campusToday, currentMealPeriodIndex, servingMealPeriodIndex } from '@/lib/dates';
 import { MenuMasthead } from '@/components/menu-masthead';
@@ -71,20 +71,6 @@ export default async function MenusPage(props: PageProps<'/'>) {
   ]);
   const loggedMap = loggedServings.data;
 
-  // Usuals need the menu first, since they're only worth showing for food
-  // that's actually being served right now.
-  const onMenu = new Set(stations.flatMap((s) => s.items.map((i) => i.id)));
-  const usualIds =
-    user && hall && period
-      ? (
-          await tolerate(
-            () => getUsualRecipeIds(supabase, user.id, hall.id, period.name, onMenu),
-            [] as number[],
-            'usuals',
-          )
-        ).data
-      : [];
-
   return (
     <>
       <MenuMasthead
@@ -111,7 +97,6 @@ export default async function MenusPage(props: PageProps<'/'>) {
             stations={stations}
             defaultFilters={profile?.dietary_prefs ?? []}
             loggedServings={Object.fromEntries(loggedMap)}
-            usualIds={usualIds}
             context={{
               serviceDate: date,
               mealPeriodName: period?.name ?? null,

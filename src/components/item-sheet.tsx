@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { NutritionLabel } from './nutrition-label';
 import { Sheet } from './ui/sheet';
-import { logFood, type LogResult } from '@/app/actions';
+import { logFood } from '@/app/actions';
 import { allergenLabel, propertyLabel, conflictingAllergens } from '@/lib/labels';
 import { SERVING_STEPS } from '@/lib/servings';
 import type { RecipeRow } from '@/lib/supabase/database.types';
@@ -28,7 +28,7 @@ export function ItemSheet({
   /** Already logged today — shown so the sheet doesn't contradict the menu row. */
   servingsToday?: number;
   onClose: () => void;
-  onLogged: (recipe: RecipeRow, servings: number, result: LogResult) => void;
+  onLogged: (recipe: RecipeRow, servings: number) => void;
 }) {
   const [servings, setServings] = useState(1);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export function ItemSheet({
       });
 
       if (result.ok) {
-        onLogged(recipe, servings, result);
+        onLogged(recipe, servings);
         onClose();
       } else {
         setError(result.error ?? 'Something went wrong.');

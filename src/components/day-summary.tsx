@@ -1,8 +1,7 @@
-import type { DayTotals } from '@/lib/log';
+import { goalProgress, type DayTotals } from '@/lib/log';
 
 function Macro({ label, value, goal }: { label: string; value: number; goal: number }) {
-  const pct = goal > 0 ? Math.min(100, (value / goal) * 100) : 0;
-  const over = value > goal;
+  const { pct, over } = goalProgress(value, goal);
 
   return (
     <div className="flex-1">

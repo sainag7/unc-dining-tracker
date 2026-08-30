@@ -11,15 +11,15 @@ export interface ActionResult {
 }
 
 export interface LogResult extends ActionResult {
-  /** Id of the row written, so the caller can offer an undo. */
-  logId?: number;
   /**
-   * What the line held before this add — 0 when the add created it.
+   * Id of the row written or incremented.
    *
-   * Undo restores this number rather than deleting the row, because a tap on
-   * something you'd already eaten twice should take back the tap, not the meal.
+   * Nothing reads this today — it existed for the menu screen's add-undo,
+   * which the quantity stepper replaced. Kept because it is the natural
+   * result of a write and costs nothing to return; delete it if a second
+   * caller never appears.
    */
-  previousServings?: number;
+  logId?: number;
 }
 
 export interface RemoveResult extends ActionResult {
@@ -121,7 +121,7 @@ export async function logFood(input: {
     if (error) return { ok: false, error: `Could not save that: ${error.message}` };
 
     revalidatePath('/', 'layout');
-    return { ok: true, logId: existing.id, previousServings: existing.servings };
+    return { ok: true, logId: existing.id };
   }
 
   const { data: inserted, error } = await supabase
@@ -145,7 +145,7 @@ export async function logFood(input: {
 
   // 'layout' so the tab bar's running total refreshes along with the pages.
   revalidatePath('/', 'layout');
-  return { ok: true, logId: inserted?.id, previousServings: 0 };
+  return { ok: true, logId: inserted?.id };
 }
 
 /**
@@ -300,7 +300,7 @@ export async function restoreLog(entry: {
     if (error) return { ok: false, error: `Could not restore that: ${error.message}` };
 
     revalidatePath('/', 'layout');
-    return { ok: true, logId: existing.id, previousServings: existing.servings };
+    return { ok: true, logId: existing.id };
   }
 
   const { data: inserted, error } = await supabase

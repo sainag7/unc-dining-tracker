@@ -2,10 +2,19 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { ChevronUp } from './ui/icons';
 import { Sheet } from './ui/sheet';
-import { groupByMealPeriod, totalsFor, type LogEntry } from '@/lib/log';
+import { PlateRing } from './ui/plate-ring';
+import { QuantityStepper } from './ui/quantity-stepper';
+import { updateServings, removeLog } from '@/app/actions';
+import {
+  goalProgress,
+  groupByMealPeriod,
+  servingsAfterRemoval,
+  totalsFor,
+  type LogEntry,
+} from '@/lib/log';
 
 /**
  * The strip above the tab bar, and the rule for when there shouldn't be one.
@@ -73,6 +82,72 @@ export function TrayNotice() {
 }
 
 /**
+ * One line on the tray, and the only place you can change it without leaving
+ * the menu.
+ *
+ * Its own component rather than JSX in the map because each row carries its own
+ * pending state — editing one line shouldn't grey out the rest of the tray.
+ *
+ * The same QuantityStepper the menu row and the log row use. Changing an amount
+ * is the same gesture wherever you do it, and taking one off a 1× line deletes
+ * it here exactly as it does on the menu.
+ *
+ * py-2.5, not py-2: the stepper draws 27px but claims a 44px hit area around
+ * each button, so a tighter row would let one line's targets reach into its
+ * neighbour's and a tap near the boundary would move the wrong count.
+ */
+function TrayEntryRow({ entry }: { entry: LogEntry }) {
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  const change = (servings: number) =>
+    startTransition(async () => {
+      const result = await updateServings(entry.id, servings);
+      if (!result.ok) setError(result.error ?? 'Could not update that.');
+    });
+
+  const remove = () =>
+    startTransition(async () => {
+      const result = await removeLog(entry.id);
+      if (!result.ok) setError(result.error ?? 'Could not remove that.');
+    });
+
+  return (
+    <li
+      className={`flex items-center gap-3 border-b border-border py-2.5 transition-opacity duration-150 ease-out last:border-0 ${
+        pending ? 'opacity-50' : ''
+      }`}
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-body">{entry.recipeName}</span>
+        {error && (
+          <span role="alert" className="mt-0.5 block text-meta font-medium text-danger">
+            {error}
+          </span>
+        )}
+      </span>
+
+      <QuantityStepper
+        servings={entry.servings}
+        label={entry.recipeName}
+        disabled={pending}
+        onAdd={() => change(entry.servings + 1)}
+        onRemove={() => {
+          const next = servingsAfterRemoval(entry.servings);
+          if (next === null) remove();
+          else change(next);
+        }}
+      />
+
+      {/* Moves as you tap — the feedback that makes editing here worth doing. */}
+      <span className="data w-10 shrink-0 text-right text-body">
+        {Math.round((entry.calories_snapshot ?? 0) * entry.servings)}
+      </span>
+    </li>
+  );
+}
+
+/**
  * The tray.
  *
  * This is the one element that makes the app a tracker rather than a menu
@@ -87,7 +162,16 @@ export function TrayNotice() {
  * doesn't any more — two running totals on one screen is one too many, and
  * the subtitle was 10px in the faintest grey in the palette.
  */
-export function TrayBar({ entries, calories }: { entries: LogEntry[]; calories: number }) {
+export function TrayBar({
+  entries,
+  calories,
+  calorieGoal,
+}: {
+  entries: LogEntry[];
+  calories: number;
+  /** Absent when the user has no profile row yet — the ring is hidden then. */
+  calorieGoal?: number;
+}) {
   const [open, setOpen] = useState(false);
 
   const count = entries.length;
@@ -98,6 +182,10 @@ export function TrayBar({ entries, calories }: { entries: LogEntry[]; calories: 
   const groups = groupByMealPeriod(entries);
   const period = groups.length > 0 ? groups[groups.length - 1].period : null;
 
+  // The ring and the number are the same fact, so they change together. A red
+  // ring beside a blue figure reads as two unrelated signals.
+  const over = calorieGoal !== undefined && goalProgress(calories, calorieGoal).over;
+
   return (
     <>
       <TrayShell>
@@ -105,10 +193,20 @@ export function TrayBar({ entries, calories }: { entries: LogEntry[]; calories: 
           type="button"
           onClick={() => setOpen(true)}
           aria-expanded={open}
-          aria-label={`Show what is on your tray. ${count} ${count === 1 ? 'item' : 'items'}, ${calories} calories.`}
+          aria-label={
+            `Show what is on your tray. ${count} ${count === 1 ? 'item' : 'items'}, ` +
+            (calorieGoal ? `${calories} of ${calorieGoal} calories.` : `${calories} calories.`)
+          }
           className="mx-auto flex w-full max-w-[640px] items-center gap-3 px-4"
           style={{ height: 'var(--tray-bar-h)' }}
         >
+          {/*
+            The plate leads the row. aria-hidden, and the goal is spoken through
+            the button's own label instead — a role="progressbar" nested inside
+            a button corrupts the button's accessible name.
+          */}
+          {calorieGoal !== undefined && <PlateRing calories={calories} goal={calorieGoal} />}
+
           <span className="min-w-0 flex-1 text-left">
             <span className="block truncate text-sm text-text">
               {count === 0 ? 'Tray empty' : `${count} ${count === 1 ? 'item' : 'items'} on tray`}
@@ -128,7 +226,12 @@ export function TrayBar({ entries, calories }: { entries: LogEntry[]; calories: 
             The number the whole app exists to show. aria-live so a quick-add
             announces the new total without moving focus.
           */}
-          <span aria-live="polite" className="data shrink-0 text-total font-semibold text-accent-text">
+          <span
+            aria-live="polite"
+            className={`data shrink-0 text-total font-semibold ${
+              over ? 'text-danger' : 'text-accent-text'
+            }`}
+          >
             {calories.toLocaleString()}
           </span>
           <span className="shrink-0 text-micro text-text-muted">cal</span>
@@ -169,34 +272,29 @@ export function TrayBar({ entries, calories }: { entries: LogEntry[]; calories: 
           ) : (
             // Grouped and ordered exactly as /log does it — the tray is the
             // same day, read at a glance instead of in full.
-            groupByMealPeriod(entries).map(({ period, entries: items }) => (
-              <section key={period} className="mb-3 last:mb-0">
-                <div className="flex items-center justify-between gap-3 border-b border-border py-1.5">
-                  <h3 className="placard text-text-muted">{period}</h3>
-                  <span className="data shrink-0 text-meta text-text-muted">
-                    {totalsFor(items).calories} cal
-                  </span>
-                </div>
-                <ul>
-                  {items.map((entry) => (
-                    <li
-                      key={entry.id}
-                      className="flex items-center gap-3 border-b border-border py-2 last:border-0"
-                    >
-                      <span className="min-w-0 flex-1 truncate text-body">{entry.recipeName}</span>
-                      {entry.servings !== 1 && (
-                        <span className="data shrink-0 text-meta text-text-muted">
-                          {entry.servings}×
-                        </span>
-                      )}
-                      <span className="data shrink-0 text-body">
-                        {Math.round((entry.calories_snapshot ?? 0) * entry.servings)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))
+            groupByMealPeriod(entries).map(({ period, entries: items }) => {
+              // One call, both figures. totalsFor already computes protein on
+              // every one of these and it was being thrown away — and it rounds
+              // once at the end, which is what keeps a meal of part servings
+              // from losing a gram per row.
+              const totals = totalsFor(items);
+
+              return (
+                <section key={period} className="mb-3 last:mb-0">
+                  <div className="flex items-center justify-between gap-3 border-b border-border py-1.5">
+                    <h3 className="placard min-w-0 truncate text-text-muted">{period}</h3>
+                    <span className="data shrink-0 text-meta text-text-muted">
+                      {totals.calories} cal · {totals.protein}g protein
+                    </span>
+                  </div>
+                  <ul>
+                    {items.map((entry) => (
+                      <TrayEntryRow key={entry.id} entry={entry} />
+                    ))}
+                  </ul>
+                </section>
+              );
+            })
           )}
         </Sheet>
       )}

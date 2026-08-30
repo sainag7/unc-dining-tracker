@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { createClient } from '@/lib/supabase/server';
-import { getDayLog, totalsFor } from '@/lib/log';
+import { getDayLog, getProfile, totalsFor } from '@/lib/log';
 import { tolerate } from '@/lib/tolerate';
 import { campusToday } from '@/lib/dates';
 import { ThemeProvider } from '@/components/theme-provider';
@@ -49,9 +49,18 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
   // Tolerated rather than awaited outright: this is the root layout, so a throw
   // here escapes error.tsx and 500s every route in the app — including the menu,
   // which doesn't need a session at all.
-  const tray = user
-    ? await tolerate(() => getDayLog(supabase, user.id, campusToday()), [], 'day log')
-    : null;
+  //
+  // The profile rides along for one field: the calorie goal, which the tray
+  // bar's ring needs. It is deliberately NOT tolerated — getProfile uses
+  // maybeSingle() and swallows its own error, so it cannot throw, and routing
+  // it through tolerate would let a missing profile flip the bar into
+  // "Couldn't load your tray" when the tray loaded perfectly well.
+  const [tray, profile] = user
+    ? await Promise.all([
+        tolerate(() => getDayLog(supabase, user.id, campusToday()), [], 'day log'),
+        getProfile(supabase, user.id),
+      ])
+    : [null, null];
 
   return (
     // suppressHydrationWarning: next-themes writes the class on <html> before
@@ -70,7 +79,15 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
               state, and it has to look different from an empty tray — that
               would quietly claim you hadn't eaten anything today. */}
           {tray && !tray.failed && (
-            <TrayBar entries={tray.data} calories={totalsFor(tray.data).calories} />
+            <TrayBar
+              entries={tray.data}
+              calories={totalsFor(tray.data).calories}
+              // Optional, not defaulted to 2000. The literal is already
+              // duplicated between the schema and log/page.tsx, and a ring
+              // drawn against a number the user never set would be showing
+              // progress toward a guess. No goal, no ring.
+              calorieGoal={profile?.calorie_goal}
+            />
           )}
           {tray?.failed && <TrayNotice />}
           <TabBar />

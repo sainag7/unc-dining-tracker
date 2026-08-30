@@ -24,6 +24,7 @@ what makes the app read as UNC without turning it blue.
 | `--bg` | `#f5f7fa` | `#0a0f1a` |
 | `--surface` | `#ffffff` | `#0a0f1a` |
 | `--surface-alt` | `#edf1f6` | `#0e1522` |
+| `--section-bg` | `#d8e1ed` | `#1e293f` |
 | `--border` | `#e2e8f0` | `#1b2536` |
 | `--border-soft` | `#edf1f6` | `#161f2e` |
 | `--border-strong` | `#c6d0de` | `#28344a` |
@@ -48,10 +49,28 @@ sits *on top* of it at 4.84:1. In dark mode it is 6.38:1 on the ground and is
 safe as text, which is why `--accent-text` differs between modes when `--accent`
 does not.
 
-**`--accent-text` has exactly one job**, the active tab bar item, and it is the
-one place light mode needs blue text. `#2e7baf` is 4.60:1 on `--surface`. It is
-4.28:1 on `--bg`, which is why that pairing does not exist — the tab bar is a
-surface.
+**`--accent-text` has two jobs**: the active tab bar item, and the tray total —
+which the plate ring now draws as well as prints, in the same colour, because it
+is the same fact. It is the only blue light mode can use as text. `#2e7baf` is
+4.60:1 on `--surface` and 4.05:1 on `--surface-alt`, the tray bar's ground.
+
+That second number is the tight one. It clears 3:1 but not 4.5:1, and it passes
+only because the tray total is 20px at weight 600 — WCAG's large-text band,
+where 3:1 is the bar. **Shrink the tray total below ~18px, or drop it to a
+normal weight, and that pairing becomes a real failure.** `check-contrast`
+carries the pair with that reasoning in a comment.
+
+`--accent-text` is 4.28:1 on `--bg`, which is why that pairing does not exist —
+both the tab bar and the tray bar are surfaces, not the page ground.
+
+**Why the station header has its own ground.** `--section-bg` is the one band
+in the app whose entire job is to be distinguishable. It used to share
+`--surface-alt`, which sits **1.13:1** from the rows in light and **1.05:1** in
+dark — a step you cannot see, so the header read as floating text rather than a
+band. It needs a separate token because darkening the shared one drags the tray
+bar with it, and the tray total is `--accent-text`, which falls to 3.80:1 on a
+ground that dark. At `#d8e1ed` / `#1e293f` the step is 1.32:1 in both modes and
+the label still clears 11:1.
 
 **Why `--surface` equals `--bg` in dark.** There is no lift to be had from a
 near-black on a near-black. What separates the list from the bars in dark mode
@@ -109,7 +128,7 @@ leaving the house.
 |---|---|---|---|
 | `wordmark` | 28 / 32 | 700 | −0.03em |
 | `placard` | 12 / 16 | 600 | +0.08em, uppercase |
-| `section-label` | 11 / 15 | 600 | +0.07em, uppercase |
+| `section-label` | 11 / 15 | 700 | +0.07em, uppercase |
 | `text-input` | 16 / 24 | 400–600 | — |
 | `text-body` | 15 / 20 | 400–500 | — |
 | `text-row` | 14 / 20 | 400 | — |
@@ -224,6 +243,41 @@ lunch or the whole day. It's derived from the entries already in hand via
 In dark mode the bar is `--surface-alt`, because `--surface` equals `--bg` there
 and a plain surface would leave it floating on a hairline.
 
+### The plate
+
+Leading the bar is a 28px ring — `ui/plate-ring.tsx` — that fills clockwise from
+twelve o'clock as the day's calories approach the goal, with a filled dot in the
+middle. A plate seen from above. It closes at the goal, and past it the ring and
+the number both turn `--danger`: the arc cannot say "130%", so the colour does,
+and the exact figure is right beside it.
+
+Three things about it are deliberate.
+
+**No goal, no ring.** `calorieGoal` reaches `TrayBar` as an optional, never
+defaulted to 2000. `calorie_goal` is `not null default 2000` and a trigger
+backfills a row per user, but `getProfile` still returns `ProfileRow | null` —
+the trigger only covers users created after that migration, and the settings page
+already has a "profile not ready" screen for the gap. A ring drawn against an
+invented goal would be showing progress toward a number nobody set.
+
+**It is `aria-hidden`, and the goal is spoken by the bar.** The whole tray bar is
+one `<button>` whose `aria-label` is its accessible name; a `role="progressbar"`
+nested inside would corrupt that computation. The label carries the goal instead:
+*"…840 of 2,000 calories."*
+
+**The one place the transform-and-opacity rule is broken.** The arc animates
+`stroke-dashoffset`, which is neither. It earns the exception — there is no
+transform that draws an arc — and the reason behind the rule still holds, because
+`stroke-dashoffset` is paint-only and triggers no layout. The global
+`prefers-reduced-motion` block zeroes it with `!important`, so no `motion-safe:`
+prefix is needed at the call site.
+
+The percentage rule itself is `goalProgress` in `lib/log.ts`, shared with the
+macro hairlines on the log screen — two visualisations of one idea, so it is
+written once. Its `goal > 0` guard is what stops an unset goal producing
+`Infinity`, and an arc drawn from `Infinity` disappears silently rather than
+erroring.
+
 **It expands into the real `Sheet`, at the peek snap point.** It used to be a
 bare `div` with `max-h-[45vh] overflow-y-auto` and no scrim, no rounded top, no
 handle and no title — so whatever row landed on the boundary was sliced in half
@@ -337,11 +391,17 @@ The no-flash script lands 77 characters into `<body>`, before any content.
   than inserting. Quick-add used to INSERT on every tap, so eating fourteen of
   something wrote fourteen rows. `servings` had been on the table since the
   first migration the whole time.
-- **Undo restores, it doesn't delete.** An add increments an existing line, so
-  deleting the row would take back every helping logged earlier rather than the
-  one tap being undone. `logFood` returns `previousServings` for exactly this,
-  and `restoreLog` puts a swiped-away entry back with its original snapshots —
-  re-logging would take a fresh reading UNC may have revised since.
+- **There is one undo, and it guards the destructive gesture.** Swiping a row
+  away on the log screen deletes a whole line, so it gets a toast; `restoreLog`
+  puts the entry back with its *original* snapshots, because re-logging would
+  take a fresh reading UNC may have revised since.
+
+  Adding used to get one too. It doesn't any more: the quantity stepper's `−`
+  undoes an add directly, in place, for as long as the row exists. A toast is a
+  worse version of that — it covers content, it expires after six seconds, and
+  it only ever reaches the most recent add. The rule this leaves behind is that
+  **a transient undo is for actions with no permanent affordance**, not for
+  every action.
 
 ## What has no test coverage
 

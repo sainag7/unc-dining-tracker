@@ -5,9 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ItemSheet, type SheetContext } from './item-sheet';
 import { MenuRow } from './menu-row';
 import { Sheet } from './ui/sheet';
-import { UndoToast } from './ui/undo-toast';
 import { ChevronDown, Check, Search, Sliders, Close, ArrowsSort } from './ui/icons';
-import { logFood, removeLog, removeServing, updateServings } from '@/app/actions';
+import { logFood, removeServing } from '@/app/actions';
 import { FILTERABLE_PROPERTIES, propertyLabel } from '@/lib/labels';
 import { orderStations, stationsToCollapse } from '@/lib/stations';
 import { applySort, nextSortMode, parseSortMode, sortLabel, type SortMode } from '@/lib/sort';
@@ -22,26 +21,11 @@ const SORT_DESCRIPTION: Record<SortMode, string> = {
   'cal-desc': 'sorted by calories, highest first',
 };
 
-interface Added {
-  logId: number;
-  label: string;
-  recipeId: number;
-  /**
-   * What the line held before this add. Undo restores this rather than
-   * deleting: adds now increment an existing line, so deleting would throw
-   * away helpings the user never asked to take back.
-   */
-  previousServings: number;
-  /** How much this add put on, so undo can take exactly that much off. */
-  addedServings: number;
-}
-
 export function MenuBrowser({
   stations: rawStations,
   context,
   defaultFilters = [],
   loggedServings,
-  usualIds = [],
 }: {
   stations: StationWithItems[];
   context: SheetContext;
@@ -49,8 +33,6 @@ export function MenuBrowser({
   defaultFilters?: string[];
   /** Servings already logged for the viewed date, by recipe id. */
   loggedServings: Record<number, number>;
-  /** Recipe ids this user usually eats at this hall and meal period. */
-  usualIds?: number[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -72,7 +54,6 @@ export function MenuBrowser({
   const [showFilters, setShowFilters] = useState(false);
   const [detail, setDetail] = useState<RecipeRow | null>(null);
   const [logged, setLogged] = useState<Record<number, number>>(loggedServings);
-  const [added, setAdded] = useState<Added | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -149,15 +130,6 @@ export function MenuBrowser({
   // and search results are already flat.
   const grouped = sortMode === 'station';
 
-  const usuals = useMemo(() => {
-    if (usualIds.length === 0 || searching) return [];
-    const byId = new Map<number, RecipeRow>();
-    for (const station of stations) {
-      for (const item of station.items) if (!byId.has(item.id)) byId.set(item.id, item);
-    }
-    return usualIds.map((id) => byId.get(id)).filter((r): r is RecipeRow => Boolean(r));
-  }, [usualIds, stations, searching]);
-
   function quickAdd(item: RecipeRow) {
     setError(null);
     // Move the count first; the write follows. A failure puts it back.
@@ -175,14 +147,7 @@ export function MenuBrowser({
         hallId: context.hallId,
       });
 
-      if (result.ok && result.logId) {
-        setAdded({
-          logId: result.logId,
-          label: item.name,
-          recipeId: item.id,
-          previousServings: result.previousServings ?? 0,
-          addedServings: 1,
-        });
+      if (result.ok) {
         // The tray bar's total is resolved in the layout, so without this it
         // keeps showing the pre-add number until you navigate.
         router.refresh();
@@ -202,10 +167,6 @@ export function MenuBrowser({
       ...current,
       [item.id]: Math.max(0, (current[item.id] ?? 0) - 1),
     }));
-
-    // The undo toast holds one log id. Taking a serving off may have already
-    // deleted that row, so undoing afterwards would subtract a second time.
-    if (added?.recipeId === item.id) setAdded(null);
 
     navigator.vibrate?.(10);
 
@@ -232,31 +193,6 @@ export function MenuBrowser({
         setLogged((current) => ({ ...current, [item.id]: (current[item.id] ?? 0) + 1 }));
         setError(result.error ?? 'Could not remove that.');
       }
-    });
-  }
-
-  /**
-   * Puts the line back the way it was before the add.
-   *
-   * An add increments an existing line rather than writing a new one, so undo
-   * can't just delete the row — that would take back every helping logged
-   * earlier, not the one tap being undone. It deletes only when the add is what
-   * created the line.
-   */
-  function undo(entry: Added) {
-    setAdded(null);
-    setLogged((current) => ({
-      ...current,
-      [entry.recipeId]: Math.max(0, (current[entry.recipeId] ?? 0) - entry.addedServings),
-    }));
-    startTransition(async () => {
-      const result =
-        entry.previousServings > 0
-          ? await updateServings(entry.logId, entry.previousServings)
-          : await removeLog(entry.logId);
-
-      if (result.ok) router.refresh();
-      else setError(result.error ?? 'Could not undo that.');
     });
   }
 
@@ -387,10 +323,12 @@ export function MenuBrowser({
       </div>
 
       {/*
-        An error is worth a line in the layout; a confirmation is not. The
-        undo used to share this band, so every single add pushed the whole
-        list down 53px and the row you were aiming at moved out from under
-        your thumb. It floats now — see UndoToast.
+        An error is worth a line in the layout; a confirmation is not. This
+        band used to carry an "Added X · Undo" line too, so every single add
+        pushed the whole list down 53px and the row you were aiming at moved
+        out from under your thumb. The confirmation is now the row's own
+        state — it tints and shows a count — which needs no space of its own
+        and doesn't expire.
       */}
       {error && (
         <div
@@ -424,54 +362,36 @@ export function MenuBrowser({
             </section>
           )
         ) : (
-          <>
-            {usuals.length > 0 && (
-              <section className="mt-2">
-                {/*
-                  No count. StationHead's number is an inventory figure — "SALAD
-                  BAR 41" — and a personalised list of five things you often eat
-                  is not an inventory of five things.
-                */}
-                <StationHead title="Your usuals" />
-                <ul>
-                  {usuals.map((item) => (
-                    <MenuRow key={`usual-${item.id}`} {...rowProps(item)} />
-                  ))}
-                </ul>
-              </section>
-            )}
+          visibleStations.length === 0 ? (
+            <EmptyState
+              title="Nothing matches"
+              body={`No items are ${activeProps.map(propertyLabel).join(' and ')}. Clearing the filters shows the whole menu.`}
+              actionLabel="Clear filters"
+              onAction={() => updateFilters([])}
+            />
+          ) : (
+            visibleStations.map((station) => {
+              const isClosed = grouped && closed.has(station.name);
+              return (
+                <section key={station.name} className="mt-2">
+                  <StationHead
+                    title={station.name}
+                    count={station.items.length}
+                    collapsed={isClosed}
+                    onToggle={grouped ? () => toggleStation(station.name) : undefined}
+                  />
 
-            {visibleStations.length === 0 ? (
-              <EmptyState
-                title="Nothing matches"
-                body={`No items are ${activeProps.map(propertyLabel).join(' and ')}. Clearing the filters shows the whole menu.`}
-                actionLabel="Clear filters"
-                onAction={() => updateFilters([])}
-              />
-            ) : (
-              visibleStations.map((station) => {
-                const isClosed = grouped && closed.has(station.name);
-                return (
-                  <section key={station.name} className="mt-2">
-                    <StationHead
-                      title={station.name}
-                      count={station.items.length}
-                      collapsed={isClosed}
-                      onToggle={grouped ? () => toggleStation(station.name) : undefined}
-                    />
-
-                    {!isClosed && (
-                      <ul>
-                        {station.items.map((item, i) => (
-                          <MenuRow key={`${item.id}-${i}`} {...rowProps(item)} />
-                        ))}
-                      </ul>
-                    )}
-                  </section>
-                );
-              })
-            )}
-          </>
+                  {!isClosed && (
+                    <ul>
+                      {station.items.map((item, i) => (
+                        <MenuRow key={`${item.id}-${i}`} {...rowProps(item)} />
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              );
+            })
+          )
         )}
       </div>
 
@@ -539,32 +459,16 @@ export function MenuBrowser({
           context={context}
           servingsToday={logged[detail.id] ?? 0}
           onClose={() => setDetail(null)}
-          onLogged={(recipe, servings, result) => {
+          onLogged={(recipe, servings) => {
             setLogged((current) => ({
               ...current,
               [recipe.id]: (current[recipe.id] ?? 0) + servings,
             }));
-            if (result.logId) {
-              setAdded({
-                logId: result.logId,
-                label: recipe.name,
-                recipeId: recipe.id,
-                previousServings: result.previousServings ?? 0,
-                addedServings: servings,
-              });
-            }
             router.refresh();
           }}
         />
       )}
 
-      {added && !error && (
-        <UndoToast
-          message={`Added ${added.label}`}
-          onUndo={() => undo(added)}
-          onDismiss={() => setAdded(null)}
-        />
-      )}
     </>
   );
 }
@@ -594,7 +498,7 @@ function StationHead({
   const inner = (
     <>
       <h2 className="section-label min-w-0 truncate text-text">{title}</h2>
-      <span className="flex shrink-0 items-center gap-1.5 text-text-faint">
+      <span className="flex shrink-0 items-center gap-1.5 text-text-mid">
         {count !== undefined && <span className="data text-micro">{count}</span>}
         {/* One chevron, on the right, next to the count — not a count on each
             side of the row. */}
@@ -615,7 +519,7 @@ function StationHead({
   // pan's contents scroll past — the masthead is deliberately not sticky to
   // leave room for exactly this.
   const className =
-    'hairline-t hairline-b sticky top-0 z-10 -mx-4 flex w-[calc(100%+2rem)] items-center justify-between gap-3 bg-surface-alt px-4 py-1.5 text-left';
+    'hairline-t hairline-b sticky top-0 z-10 -mx-4 flex w-[calc(100%+2rem)] items-center justify-between gap-3 bg-section-bg px-4 py-1.5 text-left';
 
   if (!onToggle) {
     return <div className={className}>{inner}</div>;

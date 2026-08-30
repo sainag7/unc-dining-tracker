@@ -31,6 +31,7 @@ const LIGHT = {
   bg: '#f5f7fa',
   surface: '#ffffff',
   surfaceAlt: '#edf1f6',
+  sectionBg: '#d8e1ed',
   border: '#e2e8f0',
   borderSoft: '#edf1f6',
   borderStrong: '#c6d0de',
@@ -50,6 +51,7 @@ const DARK = {
   bg: '#0a0f1a',
   surface: '#0a0f1a',
   surfaceAlt: '#0e1522',
+  sectionBg: '#1e293f',
   border: '#1b2536',
   borderSoft: '#161f2e',
   borderStrong: '#28344a',
@@ -86,6 +88,10 @@ function pairs(t: typeof LIGHT): Pair[] {
     { name: 'text on row-active', fg: t.text, bg: t.rowActive, level: 'text' },
     { name: 'text-mid on surface', fg: t.textMid, bg: t.surface, level: 'text' },
     { name: 'text-mid on surface-alt', fg: t.textMid, bg: t.surfaceAlt, level: 'text' },
+    // The station header band. The label and the count both sit on it, and it
+    // is the one ground in the app whose whole job is to be distinguishable.
+    { name: 'text on section-bg', fg: t.text, bg: t.sectionBg, level: 'text' },
+    { name: 'text-mid on section-bg', fg: t.textMid, bg: t.sectionBg, level: 'text' },
     { name: 'text-muted on surface', fg: t.textMuted, bg: t.surface, level: 'text' },
     { name: 'text-faint on surface', fg: t.textFaint, bg: t.surface, level: 'text' },
     { name: 'text-faint on surface-alt', fg: t.textFaint, bg: t.surfaceAlt, level: 'text' },
@@ -100,6 +106,17 @@ function pairs(t: typeof LIGHT): Pair[] {
 
     // Control boundaries and fills: 3:1 against whatever sits behind them.
     { name: 'accent fill on surface', fg: t.accent, bg: t.surface, level: 'ui' },
+    //
+    // The tray bar's ground is --surface-alt, and two things sit on it there:
+    // the plate ring's arc, and the calorie total itself.
+    //
+    // 'ui' at 3:1 is the right bar for the arc — it is a graphic. The total is
+    // text, and at 4.05:1 light it clears 3:1 but not 4.5:1. It passes because
+    // 20px at weight 600 falls in WCAG's large-text band, where 3:1 applies.
+    // That is the whole margin: drop the tray total below ~18px, or lighten it
+    // to a normal weight, and this pairing becomes a real failure.
+    { name: 'accent-text on surface-alt', fg: t.accentText, bg: t.surfaceAlt, level: 'ui' },
+    { name: 'danger on surface-alt', fg: t.danger, bg: t.surfaceAlt, level: 'ui' },
 
     //
     // The two deliberate shortfalls.
