@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runSync } from '@/lib/scraper/sync';
 
@@ -21,6 +22,15 @@ export async function GET(request: Request) {
 
   try {
     const result = await runSync(createAdminClient());
+
+    // The menu readers are cached with an hour's TTL (lib/menu.ts). Without
+    // this a fresh scrape would sit invisible behind a stale entry for up to
+    // that long; with it, the new menu is live the moment the scrape finishes.
+    //
+    // Next 16 requires a cache profile here. 'max' is stale-while-revalidate:
+    // the next visitor is served the old menu instantly while the new one
+    // loads behind them, rather than being made to wait for the refetch.
+    revalidateTag('menu', 'max');
 
     return NextResponse.json({
       ok: result.errors.length === 0,

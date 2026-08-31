@@ -8,9 +8,17 @@
   a phone in one hand. Type and rules do the work. Almost nothing is a card.
 
   One accent, and it is Carolina blue — #4b9cd3, the university colour, the
-  same value in both modes. It carries exactly four things: the active tab,
-  the add button's filled state, focus rings, and the tray total. It is not a
-  theme — if it starts showing up anywhere else, that's a bug.
+  same value in both modes. It carries the active tab underline, the quantity
+  stepper, focus rings, the "serving now" dot, and the two calorie rings. It
+  is not a theme — if it starts showing up anywhere else, that's a bug.
+
+  The one exception is --macro-carb / --macro-fat / --macro-protein, below.
+  DESIGN.md argues it: three rings that must be told apart is a categorical
+  encoding, which is the single job one hue cannot do.
+
+  This list and the one in DESIGN.md used to disagree — this file said "the
+  add button's filled state, and the tray total", that one said "the quantity
+  stepper and the serving-now dot", and both claimed to be exhaustive.
 
   Every colour below was checked against its own background by
   `npm run check-contrast`, which covers 26 pairs and exits non-zero on
@@ -71,6 +79,22 @@
   --danger: #a8221b;
   --danger-bg: #f6e3e1;
 
+  /*
+    The one sanctioned exception to the single accent, and the reason is
+    specific: three macro rings are a categorical encoding, which is the one
+    job a single hue genuinely cannot do. Three identical rings are a legend
+    you read rather than a picture you glance at.
+    Confined to the macros card on /log. Nothing else may use them.
+
+    Not the reference design's own hues — its purple is 1.81:1 on our dark
+    card and its orange 2.11:1 on our light one. These are the same hue
+    families re-picked per mode, and each clears 4.5:1, the text bar, because
+    the label above each ring is tinted to match it.
+  */
+  --macro-carb: #0c7568;
+  --macro-fat: #7b3fb5;
+  --macro-protein: #a85f10;
+
   --shadow-sheet: 0 -10px 44px rgb(19 41 75 / 0.18);
 
   /*
@@ -123,6 +147,10 @@
   --danger: #f0897f;
   --danger-bg: #2a1518;
 
+  --macro-carb: #3fd0bd;
+  --macro-fat: #b98ae8;
+  --macro-protein: #f0a44a;
+
   --shadow-sheet: 0 -10px 44px rgb(0 0 0 / 0.55);
 }
 
@@ -142,6 +170,9 @@
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
   --color-accent-text: var(--accent-text);
+  --color-macro-carb: var(--macro-carb);
+  --color-macro-fat: var(--macro-fat);
+  --color-macro-protein: var(--macro-protein);
   --color-danger: var(--danger);
   --color-danger-bg: var(--danger-bg);
 

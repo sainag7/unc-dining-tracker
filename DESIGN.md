@@ -11,9 +11,33 @@ anywhere outside that file.
 ## Color
 
 One accent, and it is Carolina blue — `#4b9cd3`, the university colour, the
-same value in both modes. It carries exactly four things: the active tab
-underline, the quantity stepper, focus rings, and the "serving now" dot. If it
-starts appearing anywhere else, that's a bug, not a style.
+same value in both modes. It carries the active tab underline, the quantity
+stepper, focus rings, the "serving now" dot, and the two calorie rings — the
+tray's plate and the log's Calories card, which are one job, the same number
+drawn twice. If it starts appearing anywhere else, that's a bug, not a style.
+
+*(This list and the one in `globals.css` disagreed for a while — that file named
+the add button's fill and the tray total, this one named the stepper and the
+serving-now dot, and both said "exactly four things". They are one list now.)*
+
+**The macros are the one sanctioned exception.** `--macro-carb`,
+`--macro-fat` and `--macro-protein` are three hues that exist for one card on
+`/log`, and the argument for them is narrow: three rings the reader has to tell
+apart is a **categorical encoding**, and that is the single job one hue
+genuinely cannot do. Three identical rings are a legend you read rather than a
+picture you glance at. They are confined to that card; anywhere else they are
+the same bug the paragraph above describes.
+
+| Token | Light | on card | Dark | on card |
+|---|---|---|---|---|
+| `--macro-carb` | `#0c7568` | 5.59 | `#3fd0bd` | 10.01 |
+| `--macro-fat` | `#7b3fb5` | 6.52 | `#b98ae8` | 7.17 |
+| `--macro-protein` | `#a85f10` | 4.87 | `#f0a44a` | 9.23 |
+
+Checked at **4.5:1**, the text bar, not the 3:1 an arc alone would need — each
+label is tinted to match its ring, so one value does both jobs. These are not
+the reference design's own hues: its purple is 1.81:1 on our dark card and its
+orange 2.11:1 on our light one. Same hue families, re-picked per mode.
 
 Navy `#13294b` is the other half of the pair, and it is the body text. Every
 grey below is mixed from that hue rather than being neutral. That hue shift is
@@ -176,6 +200,16 @@ people already know how to scan. Matching our scale there would make it merely a
 table.
 
 ## Layout
+
+**Two cards, and only two.** The log screen's Calories and Macros panels are the
+one place with a filled, bordered, rounded container, against a doc that
+otherwise says almost nothing is a card. A ring needs a ground to sit on, and a
+dashboard is the one screen where the numbers *are* the content rather than a
+label on something else. Neither the fill nor the border is enough alone —
+white on the page is 1.07:1 in light, and in dark `--surface` *equals* `--bg`,
+so the fill lifts to `--surface-alt` and a `--border-strong` hairline (1.45
+light, 1.46 dark) is what actually draws the edge.
+
 
 - **Container `max-w-[640px]`, centred**, on the masthead, list, tray bar and
   tab bar. Before this the list ran the full viewport, so an item name sat on

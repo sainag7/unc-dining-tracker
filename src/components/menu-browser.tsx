@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ItemSheet, type SheetContext } from './item-sheet';
 import { MenuRow } from './menu-row';
+import { useTray } from './tray-provider';
 import { Sheet } from './ui/sheet';
 import { ChevronDown, Check, Search, Sliders, Close, ArrowsSort } from './ui/icons';
 import { logFood, removeServing } from '@/app/actions';
@@ -35,6 +36,8 @@ export function MenuBrowser({
   loggedServings: Record<number, number>;
 }) {
   const router = useRouter();
+  // Null when signed out, where there is no tray bar to move.
+  const tray = useTray();
   const searchParams = useSearchParams();
 
   // Main courses lead, component bars sink. Done once, before filtering, so
@@ -139,6 +142,21 @@ export function MenuBrowser({
     navigator.vibrate?.(10);
 
     startTransition(async () => {
+      /*
+        Move the tray now, inside the transition and before the await. The
+        calories are already on the row that was tapped — none of this needs
+        the server. React holds the delta until the refresh below replaces the
+        base value, and drops it on its own if the write fails.
+
+        A first helping adds a line to the tray; a second only adds calories
+        to a line that is already there.
+      */
+      tray?.adjust({
+        calories: item.calories ?? 0,
+        protein: item.protein_g ?? 0,
+        lines: (logged[item.id] ?? 0) === 0 ? 1 : 0,
+      });
+
       const result = await logFood({
         recipeId: item.id,
         servings: 1,
@@ -171,6 +189,14 @@ export function MenuBrowser({
     navigator.vibrate?.(10);
 
     startTransition(async () => {
+      // Taking the last serving off deletes the line, so the count drops with
+      // it; taking one off a stack of three only moves the macros.
+      tray?.adjust({
+        calories: -(item.calories ?? 0),
+        protein: -(item.protein_g ?? 0),
+        lines: (logged[item.id] ?? 0) <= 1 ? -1 : 0,
+      });
+
       const result = await removeServing({
         recipeId: item.id,
         serviceDate: context.serviceDate,

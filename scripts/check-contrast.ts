@@ -43,6 +43,9 @@ const LIGHT = {
   accentFg: '#13294b',
   accentText: '#2e7baf',
   rowActive: '#f0f7fc',
+  macroCarb: '#0c7568',
+  macroFat: '#7b3fb5',
+  macroProtein: '#a85f10',
   danger: '#a8221b',
   dangerBg: '#f6e3e1',
 };
@@ -63,6 +66,9 @@ const DARK = {
   accentFg: '#0a2b45',
   accentText: '#4b9cd3',
   rowActive: '#0e1725',
+  macroCarb: '#3fd0bd',
+  macroFat: '#b98ae8',
+  macroProtein: '#f0a44a',
   danger: '#f0897f',
   dangerBg: '#2a1518',
 };
@@ -96,11 +102,18 @@ function pairs(t: typeof LIGHT): Pair[] {
     { name: 'text-faint on surface', fg: t.textFaint, bg: t.surface, level: 'text' },
     { name: 'text-faint on surface-alt', fg: t.textFaint, bg: t.surfaceAlt, level: 'text' },
     { name: 'text-faint on row-active', fg: t.textFaint, bg: t.rowActive, level: 'text' },
-    // accent-text has exactly one job: the active tab bar item. The tab bar is
+    // accent-text has two jobs: the active tab bar item and the tray total.
+    // The tab bar is
     // --surface, so that is the pairing checked. On --bg it measures 4.28:1,
     // which is why the design confines blue text to the bar.
     { name: 'accent-text on surface', fg: t.accentText, bg: t.surface, level: 'text' },
     { name: 'accent-fg on accent', fg: t.accentFg, bg: t.accent, level: 'text' },
+    // The macro rings and their labels, on the card they sit in. Checked at
+    // the 4.5:1 text bar rather than the 3:1 arc bar, because each label is
+    // tinted to match its ring — one value has to serve both jobs.
+    { name: 'macro carb on surface', fg: t.macroCarb, bg: t.surface, level: 'text' },
+    { name: 'macro fat on surface', fg: t.macroFat, bg: t.surface, level: 'text' },
+    { name: 'macro protein on surface', fg: t.macroProtein, bg: t.surface, level: 'text' },
     { name: 'danger on bg', fg: t.danger, bg: t.bg, level: 'text' },
     { name: 'danger on danger-bg', fg: t.danger, bg: t.dangerBg, level: 'text' },
 

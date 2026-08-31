@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getUser } from '@/lib/supabase/server';
 import { getHalls, getMealPeriods, getStations } from '@/lib/menu';
 import { getProfile, getLoggedServingsByRecipe } from '@/lib/log';
 import { tolerate } from '@/lib/tolerate';
@@ -22,8 +22,8 @@ export default async function MenusPage(props: PageProps<'/'>) {
   const hallSlug = param('hall') ?? DEFAULT_HALL;
 
   const [halls, periods] = await Promise.all([
-    getHalls(supabase),
-    getMealPeriods(supabase, hallSlug, date),
+    getHalls(),
+    getMealPeriods(hallSlug, date),
   ]);
 
   const hall = halls.find((h) => h.slug === hallSlug) ?? halls[0] ?? null;
@@ -42,9 +42,7 @@ export default async function MenusPage(props: PageProps<'/'>) {
   const period =
     periods.find((p) => p.name === requested) ?? periods[currentMealPeriodIndex(periods)] ?? null;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   // getStations is the menu itself — if that fails the page has nothing to say,
   // so it still throws up to error.tsx. The two personal reads degrade instead:
@@ -52,7 +50,7 @@ export default async function MenusPage(props: PageProps<'/'>) {
   // notice here — these use the same token as the layout's tray read, so they
   // fail together and TrayNotice already says so once.
   const [stations, profile, loggedServings] = await Promise.all([
-    period ? getStations(supabase, period.id) : Promise.resolve([]),
+    period ? getStations(period.id) : Promise.resolve([]),
     user ? getProfile(supabase, user.id) : Promise.resolve(null),
     user
       ? tolerate(

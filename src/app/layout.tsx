@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getUser } from '@/lib/supabase/server';
 import { getDayLog, getProfile, totalsFor } from '@/lib/log';
 import { tolerate } from '@/lib/tolerate';
 import { campusToday } from '@/lib/dates';
 import { ThemeProvider } from '@/components/theme-provider';
 import { TabBar } from '@/components/tab-bar';
 import { TrayBar, TrayNotice } from '@/components/tray-bar';
+import { TrayProvider } from '@/components/tray-provider';
 import './globals.css';
 
 const geist = Geist({
@@ -42,9 +43,7 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
   // The tray bar shows what's on the tray right now, so the day's log is
   // resolved once here rather than by every page that mounts it.
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   // Tolerated rather than awaited outright: this is the root layout, so a throw
   // here escapes error.tsx and 500s every route in the app — including the menu,
@@ -79,15 +78,23 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
               state, and it has to look different from an empty tray — that
               would quietly claim you hadn't eaten anything today. */}
           {tray && !tray.failed && (
-            <TrayBar
-              entries={tray.data}
-              calories={totalsFor(tray.data).calories}
-              // Optional, not defaulted to 2000. The literal is already
-              // duplicated between the schema and log/page.tsx, and a ring
-              // drawn against a number the user never set would be showing
-              // progress toward a guess. No goal, no ring.
-              calorieGoal={profile?.calorie_goal}
-            />
+            /*
+              The totals go through a client provider rather than straight to
+              the bar, so a tap can move them without waiting for a server
+              round trip. The values here are still the truth — the provider
+              layers an optimistic delta on top and drops it the moment these
+              update. See tray-provider.tsx.
+            */
+            <TrayProvider {...totalsFor(tray.data)} count={tray.data.length}>
+              <TrayBar
+                entries={tray.data}
+                // Optional, not defaulted to 2000. The literal is already
+                // duplicated between the schema and log/page.tsx, and a ring
+                // drawn against a number the user never set would be showing
+                // progress toward a guess. No goal, no ring.
+                calorieGoal={profile?.calorie_goal}
+              />
+            </TrayProvider>
           )}
           {tray?.failed && <TrayNotice />}
           <TabBar />

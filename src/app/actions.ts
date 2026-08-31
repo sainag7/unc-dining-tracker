@@ -66,6 +66,21 @@ function slotQuery(
     : withPeriod.eq('hall_id', slot.hallId);
 }
 
+/*
+ * Why these revalidate '/log' and not '/'.
+ *
+ * revalidatePath('/', 'layout') makes Next re-render the current route and
+ * stream the whole RSC payload back inside the action's own response — on the
+ * menu screen that is all 272 recipes, invisibly, on every tap. The client then
+ * called router.refresh() and rendered the identical tree a second time. Two
+ * full renders, ~29 Supabase round trips, to move one integer.
+ *
+ * The refresh is the half worth keeping: it is the only one that re-renders the
+ * root layout, where the tray's numbers live. So the actions no longer touch
+ * the current route at all — they revalidate /log, which is the one place that
+ * must be right on a later visit, and the tray moves optimistically in the
+ * meantime. See tray-provider.tsx.
+ */
 /**
  * Records that the user ate something.
  *
@@ -91,21 +106,25 @@ export async function logFood(input: {
     return { ok: false, error: 'Servings must be between 0 and 50.' };
   }
 
-  const { data: recipe } = await supabase
-    .from('recipes')
-    .select('id, calories, protein_g, carbs_g, fat_g')
-    .eq('id', input.recipeId)
-    .maybeSingle();
-
-  if (!recipe) return { ok: false, error: "That item isn't on the menu any more." };
-
   const slot = {
     serviceDate: input.serviceDate ?? campusToday(),
     mealPeriodName: input.mealPeriodName ?? null,
     hallId: input.hallId ?? null,
   };
 
-  const { data: existing } = await slotQuery(supabase, user.id, recipe.id, slot).maybeSingle();
+  // Both only need user.id and the recipe id, so they go together. Run in
+  // series this was two round trips deep on the write path, which is the one
+  // the user is actually waiting on.
+  const [{ data: recipe }, { data: existing }] = await Promise.all([
+    supabase
+      .from('recipes')
+      .select('id, calories, protein_g, carbs_g, fat_g')
+      .eq('id', input.recipeId)
+      .maybeSingle(),
+    slotQuery(supabase, user.id, input.recipeId, slot).maybeSingle(),
+  ]);
+
+  if (!recipe) return { ok: false, error: "That item isn't on the menu any more." };
 
   // Second helping of something already on the tray: move the number, don't
   // add a line. The snapshot stays as it was — logFood's rule is that a day
@@ -120,7 +139,7 @@ export async function logFood(input: {
 
     if (error) return { ok: false, error: `Could not save that: ${error.message}` };
 
-    revalidatePath('/', 'layout');
+    revalidatePath('/log');
     return { ok: true, logId: existing.id };
   }
 
@@ -144,7 +163,7 @@ export async function logFood(input: {
   if (error) return { ok: false, error: `Could not save that: ${error.message}` };
 
   // 'layout' so the tab bar's running total refreshes along with the pages.
-  revalidatePath('/', 'layout');
+  revalidatePath('/log');
   return { ok: true, logId: inserted?.id };
 }
 
@@ -201,7 +220,7 @@ export async function removeServing(input: {
 
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/', 'layout');
+  revalidatePath('/log');
   return { ok: true, removed: next === null ? line.servings : 1 };
 }
 
@@ -226,7 +245,7 @@ export async function updateServings(logId: number, servings: number): Promise<A
 
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/', 'layout');
+  revalidatePath('/log');
   return { ok: true };
 }
 
@@ -246,7 +265,7 @@ export async function removeLog(logId: number): Promise<ActionResult> {
 
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/', 'layout');
+  revalidatePath('/log');
   return { ok: true };
 }
 
@@ -299,7 +318,7 @@ export async function restoreLog(entry: {
 
     if (error) return { ok: false, error: `Could not restore that: ${error.message}` };
 
-    revalidatePath('/', 'layout');
+    revalidatePath('/log');
     return { ok: true, logId: existing.id };
   }
 
@@ -322,7 +341,7 @@ export async function restoreLog(entry: {
 
   if (error) return { ok: false, error: `Could not restore that: ${error.message}` };
 
-  revalidatePath('/', 'layout');
+  revalidatePath('/log');
   return { ok: true, logId: inserted?.id };
 }
 

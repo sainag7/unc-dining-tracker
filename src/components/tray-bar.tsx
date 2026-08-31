@@ -6,6 +6,7 @@ import { useState, useTransition } from 'react';
 import { ChevronUp } from './ui/icons';
 import { Sheet } from './ui/sheet';
 import { PlateRing } from './ui/plate-ring';
+import { useTray } from './tray-provider';
 import { QuantityStepper } from './ui/quantity-stepper';
 import { updateServings, removeLog } from '@/app/actions';
 import {
@@ -99,17 +100,43 @@ export function TrayNotice() {
 function TrayEntryRow({ entry }: { entry: LogEntry }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const tray = useTray();
+
+  // Per serving, from the snapshot taken when it was logged — not from the
+  // recipe, which UNC may have revised since.
+  const perServing = {
+    calories: entry.calories_snapshot ?? 0,
+    protein: entry.protein_snapshot ?? 0,
+  };
 
   const change = (servings: number) =>
     startTransition(async () => {
+      const step = servings - entry.servings;
+      tray?.adjust({
+        calories: perServing.calories * step,
+        protein: perServing.protein * step,
+        lines: 0,
+      });
+
       const result = await updateServings(entry.id, servings);
       if (!result.ok) setError(result.error ?? 'Could not update that.');
+      // These actions revalidate /log, not the route this sheet is on, so the
+      // refresh is what brings the layout's tray totals back in step.
+      else router.refresh();
     });
 
   const remove = () =>
     startTransition(async () => {
+      tray?.adjust({
+        calories: -perServing.calories * entry.servings,
+        protein: -perServing.protein * entry.servings,
+        lines: -1,
+      });
+
       const result = await removeLog(entry.id);
       if (!result.ok) setError(result.error ?? 'Could not remove that.');
+      else router.refresh();
     });
 
   return (
@@ -164,17 +191,23 @@ function TrayEntryRow({ entry }: { entry: LogEntry }) {
  */
 export function TrayBar({
   entries,
-  calories,
   calorieGoal,
 }: {
   entries: LogEntry[];
-  calories: number;
   /** Absent when the user has no profile row yet — the ring is hidden then. */
   calorieGoal?: number;
 }) {
   const [open, setOpen] = useState(false);
 
-  const count = entries.length;
+  /*
+    Totals come from the provider, not from `entries`, so a tap moves them in
+    the same frame instead of waiting on a server render. `entries` still
+    supplies the sheet's list, which only matters once the sheet is open — by
+    which time the refresh has long landed.
+  */
+  const tray = useTray();
+  const calories = tray?.calories ?? 0;
+  const count = tray?.count ?? entries.length;
 
   // The meal the tray most recently gained something in. Derived from the
   // entries already in hand rather than a second query — groupByMealPeriod

@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import type { Db } from './menu';
 import type { FoodLogRow, ProfileRow } from './supabase/database.types';
 
@@ -53,12 +54,15 @@ export async function getDayLog(
   if (!rows?.length) return [];
 
   const recipeIds = [...new Set(rows.map((r) => r.recipe_id))];
-  const { data: recipes } = await db
-    .from('recipes')
-    .select('id, name, serving_size')
-    .in('id', recipeIds);
 
-  const { data: halls } = await db.from('dining_halls').select('id, name');
+  // In parallel, not in series: the halls lookup is an unfiltered two-row read
+  // that has nothing to do with the recipes. Awaiting them one after the other
+  // spent a whole extra round trip — ~200-460ms against a remote Supabase — on
+  // the root layout's critical path, for nothing.
+  const [{ data: recipes }, { data: halls }] = await Promise.all([
+    db.from('recipes').select('id, name, serving_size').in('id', recipeIds),
+    db.from('dining_halls').select('id, name'),
+  ]);
 
   const recipeById = new Map((recipes ?? []).map((r) => [r.id, r]));
   const hallById = new Map((halls ?? []).map((h) => [h.id, h.name]));
@@ -207,10 +211,16 @@ export function servingsAfterRemoval(servings: number): number | null {
   return servings > 1 ? servings - 1 : null;
 }
 
-export async function getProfile(db: Db, userId: string): Promise<ProfileRow | null> {
-  const { data } = await db.from('profiles').select('*').eq('id', userId).maybeSingle();
-  return data ?? null;
-}
+/**
+ * cache()d: the root layout and the menu page each need the profile, and
+ * without this they fetch the identical row twice per render.
+ */
+export const getProfile = cache(
+  async (db: Db, userId: string): Promise<ProfileRow | null> => {
+    const { data } = await db.from('profiles').select('*').eq('id', userId).maybeSingle();
+    return data ?? null;
+  },
+);
 
 /**
  * Per-day totals over a date range, for the history view.
