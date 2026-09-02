@@ -234,7 +234,7 @@ function SheetPanel({
       aria-modal="true"
       aria-label={label}
       style={snapping ? { transform } : undefined}
-      className={`relative flex max-h-[92vh] w-full max-w-[640px] flex-col rounded-t-lg bg-surface pb-[env(safe-area-inset-bottom)] shadow-[var(--shadow-sheet)] sm:rounded-lg ${
+      className={`relative flex max-h-[92vh] w-full max-w-[640px] flex-col rounded-t-[var(--radius-xl)] bg-surface pb-[env(safe-area-inset-bottom)] shadow-[var(--shadow-sheet)] sm:rounded-[var(--radius-xl)] ${
         snapping
           ? `will-change-transform ${dragging ? '' : 'transition-transform duration-200 ease-out motion-reduce:transition-none'}`
           : 'motion-safe:animate-[sheet-in_200ms_var(--ease)]'
@@ -265,7 +265,7 @@ function SheetPanel({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="-mr-2 -mt-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text-muted"
+            className="-mr-2 -mt-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-alt text-text-muted"
           >
             <Close />
           </button>

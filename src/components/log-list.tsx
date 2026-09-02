@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { ButtonLink } from './ui/button';
 import { useCallback, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateServings, removeLog, restoreLog } from '@/app/actions';
@@ -151,7 +151,7 @@ function EntryRow({ entry, onRemoved }: { entry: LogEntry; onRemoved: (e: LogEnt
                 onClick={() => change(s)}
                 disabled={pending}
                 aria-pressed={s === entry.servings}
-                className={`data on-accent h-11 w-14 shrink-0 rounded-sm border text-body transition-colors duration-150 ease-out ${
+                className={`data on-accent h-11 w-14 shrink-0 rounded-full border text-body transition-colors duration-150 ease-out ${
                   s === entry.servings
                     ? 'bg-accent text-accent-fg'
                     : 'border-border text-text-muted'
@@ -165,7 +165,7 @@ function EntryRow({ entry, onRemoved }: { entry: LogEntry; onRemoved: (e: LogEnt
             type="button"
             onClick={remove}
             disabled={pending}
-            className="-ml-2 mt-1 flex h-11 items-center rounded-md px-2 text-body font-medium text-danger"
+            className="mt-1.5 flex h-11 items-center rounded-full bg-danger-bg px-4 text-body font-semibold text-danger disabled:opacity-40"
           >
             Remove
           </button>
@@ -215,12 +215,9 @@ export function LogList({ entries }: { entries: LogEntry[] }) {
         <p className="mx-auto mt-1 max-w-xs text-body text-text-muted">
           Tap the add button next to anything on a menu and it lands here.
         </p>
-        <Link
-          href="/"
-          className="on-accent mt-5 inline-flex h-11 items-center rounded-md bg-accent px-5 text-body font-semibold text-accent-fg"
-        >
+        <ButtonLink href="/" className="mt-5">
           Go to menus
-        </Link>
+        </ButtonLink>
       </div>
     );
   }
@@ -229,7 +226,7 @@ export function LogList({ entries }: { entries: LogEntry[] }) {
     <div>
       {groupByMealPeriod(entries).map(({ period, entries: items }) => (
         <section key={period} className="mt-4">
-          <div className="flex items-center justify-between gap-3 border-b border-text py-2">
+          <div className="flex items-center justify-between gap-3 border-b border-border py-2">
             <h2 className="placard">{period}</h2>
             {/* totalsFor, not a local reduce: it rounds once at the end, so a
                 meal of part servings can't lose a calorie per row. */}

@@ -22,7 +22,7 @@ export function ThemeToggle() {
       type="button"
       onClick={() => setTheme(dark ? 'light' : 'dark')}
       aria-label={mounted ? `Switch to ${dark ? 'light' : 'dark'} theme` : 'Switch theme'}
-      className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted"
+      className="card flex h-11 w-11 items-center justify-center rounded-full text-text-mid"
     >
       {mounted ? <Icon /> : <span className="h-5 w-5" />}
     </button>

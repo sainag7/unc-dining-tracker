@@ -13,6 +13,6 @@ export function Skeleton({
   style?: React.CSSProperties;
 }) {
   return (
-    <div style={style} className={`rounded-sm bg-border motion-safe:animate-pulse ${className}`} />
+    <div style={style} className={`rounded-full bg-border motion-safe:animate-pulse ${className}`} />
   );
 }

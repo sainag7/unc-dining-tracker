@@ -19,7 +19,7 @@ export default function Loading() {
 
       {[0, 1, 2, 3, 4].map((section) => (
         <div key={section} className="mt-4">
-          <div className="flex items-center justify-between border-b border-text py-2">
+          <div className="flex items-center justify-between border-b border-border py-2">
             <Skeleton
               className="h-3"
               style={{ width: `${30 + ((section * 17) % 40)}%` }}

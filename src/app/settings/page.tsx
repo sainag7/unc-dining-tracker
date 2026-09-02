@@ -28,12 +28,12 @@ export default async function SettingsPage() {
 
   return (
     <main className="mx-auto w-full max-w-[640px] flex-1 px-4 py-3 pb-16">
-      <div className="flex items-end justify-between gap-3 border-b border-text pb-2">
+      <div className="flex items-end justify-between gap-3 border-b border-border pb-2">
         <div className="min-w-0">
           <h1 className="wordmark">Settings</h1>
           <p className="mt-1 truncate text-meta text-text-muted">{user.email}</p>
         </div>
-        <Link href="/log" className="-mr-2 flex h-11 shrink-0 items-center rounded-md px-2 text-body font-medium underline underline-offset-2">
+        <Link href="/log" className="-mr-3 flex h-11 shrink-0 items-center rounded-full px-3 text-body font-semibold text-accent-text">
           Done
         </Link>
       </div>
@@ -45,7 +45,7 @@ export default async function SettingsPage() {
       <form action={signOut} className="mt-10 border-t border-border pt-4">
         <button
           type="submit"
-          className="-ml-2 flex h-11 items-center rounded-md px-2 text-body font-medium text-danger"
+          className="-ml-1 flex h-11 items-center rounded-full bg-danger-bg px-4 text-body font-semibold text-danger"
         >
           Sign out
         </button>

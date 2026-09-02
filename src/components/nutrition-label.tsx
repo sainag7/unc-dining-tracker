@@ -80,7 +80,7 @@ export function NutritionLabel({
   const calories = recipe.calories === null ? '—' : Math.round(recipe.calories * servings);
 
   return (
-    <div className="rounded-md border-2 border-text bg-surface px-3 py-2 text-text">
+    <div className="rounded-[var(--radius-lg)] border-2 border-text bg-surface px-4 py-3 text-text">
       <h3 className="text-3xl leading-none font-extrabold tracking-tight">Nutrition Facts</h3>
 
       <div className="mt-1 flex items-baseline justify-between border-b-8 border-text pb-1 text-[13px]">
@@ -89,7 +89,7 @@ export function NutritionLabel({
       </div>
 
       {servings !== 1 && (
-        <div className="flex items-baseline justify-between rounded-sm border border-border-strong px-2 py-1 text-[12px]">
+        <div className="flex items-baseline justify-between rounded-[var(--radius-sm)] border border-border-strong px-2.5 py-1.5 text-[12px]">
           <span>Showing</span>
           <span className="data font-semibold">{servings} servings</span>
         </div>

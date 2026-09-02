@@ -28,9 +28,9 @@ interface Pair {
 }
 
 const LIGHT = {
-  bg: '#f5f7fa',
+  bg: '#eaf0f7',
   surface: '#ffffff',
-  surfaceAlt: '#edf1f6',
+  surfaceAlt: '#e6ecf4',
   sectionBg: '#d8e1ed',
   border: '#e2e8f0',
   borderSoft: '#edf1f6',
@@ -42,6 +42,9 @@ const LIGHT = {
   accent: '#4b9cd3',
   accentFg: '#13294b',
   accentText: '#2e7baf',
+  deep: '#13294b',
+  deepFg: '#ffffff',
+  onDeepDanger: '#ffb4a8',
   rowActive: '#f0f7fc',
   macroCarb: '#0c7568',
   macroFat: '#7b3fb5',
@@ -51,13 +54,13 @@ const LIGHT = {
 };
 
 const DARK = {
-  bg: '#0a0f1a',
-  surface: '#0a0f1a',
-  surfaceAlt: '#0e1522',
-  sectionBg: '#1e293f',
-  border: '#1b2536',
-  borderSoft: '#161f2e',
-  borderStrong: '#28344a',
+  bg: '#060a12',
+  surface: '#131b2b',
+  surfaceAlt: '#1b2436',
+  sectionBg: '#263148',
+  border: '#222d42',
+  borderSoft: '#1b2536',
+  borderStrong: '#33405a',
   text: '#eaf0f7',
   textMid: '#c7d3e1',
   textMuted: '#93a3ba',
@@ -65,7 +68,10 @@ const DARK = {
   accent: '#4b9cd3',
   accentFg: '#0a2b45',
   accentText: '#4b9cd3',
-  rowActive: '#0e1725',
+  deep: '#4b9cd3',
+  deepFg: '#0a2b45',
+  onDeepDanger: '#5c0f0a',
+  rowActive: '#16203a',
   macroCarb: '#3fd0bd',
   macroFat: '#b98ae8',
   macroProtein: '#f0a44a',
@@ -108,6 +114,12 @@ function pairs(t: typeof LIGHT): Pair[] {
     // which is why the design confines blue text to the bar.
     { name: 'accent-text on surface', fg: t.accentText, bg: t.surface, level: 'text' },
     { name: 'accent-fg on accent', fg: t.accentFg, bg: t.accent, level: 'text' },
+    // The large-CTA fill: the tray bar, the primary buttons. In light this is
+    // white on navy; in dark --deep resolves to Carolina and the foreground
+    // flips to navy, so one pairing covers both.
+    { name: 'deep-fg on deep', fg: t.deepFg, bg: t.deep, level: 'text' },
+    // The tray total once you are past the goal.
+    { name: 'on-deep-danger on deep', fg: t.onDeepDanger, bg: t.deep, level: 'text' },
     // The macro rings and their labels, on the card they sit in. Checked at
     // the 4.5:1 text bar rather than the 3:1 arc bar, because each label is
     // tinted to match its ring — one value has to serve both jobs.
@@ -130,6 +142,7 @@ function pairs(t: typeof LIGHT): Pair[] {
     // to a normal weight, and this pairing becomes a real failure.
     { name: 'accent-text on surface-alt', fg: t.accentText, bg: t.surfaceAlt, level: 'ui' },
     { name: 'danger on surface-alt', fg: t.danger, bg: t.surfaceAlt, level: 'ui' },
+    { name: 'deep fill on bg', fg: t.deep, bg: t.bg, level: 'ui' },
 
     //
     // The two deliberate shortfalls.

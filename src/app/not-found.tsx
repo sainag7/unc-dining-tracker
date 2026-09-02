@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { ButtonLink } from '@/components/ui/button';
 
 export default function NotFound() {
   return (
@@ -7,12 +7,9 @@ export default function NotFound() {
       <p className="mt-2 max-w-sm text-body text-text-muted">
         That page doesn&rsquo;t exist. The menu is where everything starts.
       </p>
-      <Link
-        href="/"
-        className="on-accent mt-6 inline-flex h-11 items-center rounded-md bg-accent px-5 text-body font-semibold text-accent-fg"
-      >
+      <ButtonLink href="/" className="mt-6">
         Go to the menu
-      </Link>
+      </ButtonLink>
     </main>
   );
 }

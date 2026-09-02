@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Button } from './ui/button';
 import { createClient } from '@/lib/supabase/client';
 
 type Mode = 'signin' | 'signup' | 'sent';
@@ -125,14 +126,15 @@ export function LoginForm({ initialError }: { initialError: string | null }) {
           </p>
         )}
 
-        <button
+        <Button
           type="button"
+          variant="secondary"
           onClick={resendConfirmation}
           disabled={busy}
-          className="mt-6 h-12 w-full rounded-md border border-border-strong text-input font-medium disabled:opacity-50"
+          className="mt-6 w-full"
         >
           {busy ? 'Sending…' : 'Resend link'}
-        </button>
+        </Button>
 
         <button
           type="button"
@@ -141,7 +143,7 @@ export function LoginForm({ initialError }: { initialError: string | null }) {
             setError(null);
             setNotice(null);
           }}
-          className="-ml-2 mt-4 flex h-11 items-center rounded-md px-2 text-body font-medium underline underline-offset-2"
+          className="-ml-4 mt-4 flex h-11 items-center rounded-full px-4 text-body font-semibold text-accent-text"
         >
           Back to sign in
         </button>
@@ -160,14 +162,15 @@ export function LoginForm({ initialError }: { initialError: string | null }) {
       */}
       <section className="mt-7 border-t border-border pt-4">
         <h2 className="placard mb-2.5 text-text-muted">Campus account</h2>
-        <button
+        <Button
           type="button"
+          variant="secondary"
           onClick={signInWithGoogle}
           disabled={busy}
-          className="h-12 w-full rounded-md border border-border-strong text-input font-medium disabled:opacity-50"
+          className="w-full"
         >
           {busy ? 'Continuing…' : 'Continue with Google'}
-        </button>
+        </Button>
       </section>
 
       <section className="mt-6 border-t border-border pt-4">
@@ -217,11 +220,7 @@ export function LoginForm({ initialError }: { initialError: string | null }) {
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={busy}
-            className="on-accent h-12 w-full rounded-md bg-accent text-input font-semibold text-accent-fg disabled:opacity-50"
-          >
+          <Button type="submit" disabled={busy} className="w-full">
             {busy
               ? mode === 'signin'
                 ? 'Signing in…'
@@ -229,7 +228,7 @@ export function LoginForm({ initialError }: { initialError: string | null }) {
               : mode === 'signin'
                 ? 'Sign in'
                 : 'Create account'}
-          </button>
+          </Button>
         </form>
 
         <p className="mt-4 text-body text-text-muted">
@@ -241,7 +240,7 @@ export function LoginForm({ initialError }: { initialError: string | null }) {
               setError(null);
               setNotice(null);
             }}
-            className="font-semibold underline underline-offset-2"
+            className="font-semibold text-accent-text"
           >
             {mode === 'signin' ? 'Create one' : 'Sign in'}
           </button>
@@ -250,7 +249,7 @@ export function LoginForm({ initialError }: { initialError: string | null }) {
 
       <Link
         href="/"
-        className="mt-6 flex h-11 items-center border-t border-border text-body font-medium underline underline-offset-2"
+        className="mt-6 flex h-11 items-center text-body font-semibold text-accent-text"
       >
         Browse the menu without an account
       </Link>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { Button } from './ui/button';
 import { updateGoals } from '@/app/actions';
 import { ALLERGEN_LABELS, FILTERABLE_PROPERTIES, propertyLabel } from '@/lib/labels';
 import type { ProfileRow } from '@/lib/supabase/database.types';
@@ -70,7 +71,7 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       <section>
-        <h2 className="placard border-b border-text py-2">Daily goals</h2>
+        <h2 className="placard pb-2 text-text-muted">Daily goals</h2>
         <div className="mt-3 grid grid-cols-2 gap-3">
           {numberField('calories', 'Calories', calorieGoal, setCalorieGoal, 'cal')}
           {numberField('protein', 'Protein', proteinGoal, setProteinGoal, 'g')}
@@ -80,7 +81,7 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
       </section>
 
       <section>
-        <h2 className="placard border-b border-text py-2">Dietary preferences</h2>
+        <h2 className="placard pb-2 text-text-muted">Dietary preferences</h2>
         <p className="mt-2 text-body text-text-muted">
           These turn on as filters when you open a menu.
         </p>
@@ -93,10 +94,8 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
                 type="button"
                 onClick={() => setDietaryPrefs(toggle(dietaryPrefs, prop))}
                 aria-pressed={on}
-                className={`on-accent flex h-11 items-center rounded-full border px-4 text-body transition-colors duration-150 ease-out ${
-                  on
-                    ? 'bg-accent font-medium text-accent-fg'
-                    : 'border-border-strong text-text-muted'
+                className={`on-accent flex h-11 items-center rounded-full px-4 text-body transition-colors duration-150 ease-out ${
+                  on ? 'bg-accent font-semibold text-accent-fg' : 'card text-text-muted'
                 }`}
               >
                 {propertyLabel(prop)}
@@ -107,7 +106,7 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
       </section>
 
       <section>
-        <h2 className="placard border-b border-text py-2">Allergens</h2>
+        <h2 className="placard pb-2 text-text-muted">Allergens</h2>
         <p className="mt-2 text-body text-text-muted">
           Items containing these get a warning on the menu. They stay visible — UNC cooks in a
           shared kitchen, so always check with staff if it matters.
@@ -121,10 +120,8 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
                 type="button"
                 onClick={() => setAllergensAvoid(toggle(allergensAvoid, key))}
                 aria-pressed={on}
-                className={`flex h-11 items-center rounded-full border px-4 text-body transition-colors duration-150 ease-out ${
-                  on
-                    ? 'border-danger bg-danger-bg font-semibold text-danger'
-                    : 'border-border-strong text-text-muted'
+                className={`flex h-11 items-center rounded-full px-4 text-body transition-colors duration-150 ease-out ${
+                  on ? 'bg-danger-bg font-semibold text-danger' : 'card text-text-muted'
                 }`}
               >
                 {label}
@@ -145,13 +142,9 @@ export function SettingsForm({ profile }: { profile: ProfileRow }) {
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="on-accent h-12 w-full rounded-md bg-accent text-input font-semibold text-accent-fg disabled:opacity-50"
-      >
+      <Button type="submit" disabled={pending} className="w-full">
         {pending ? 'Saving…' : 'Save settings'}
-      </button>
+      </Button>
     </form>
   );
 }

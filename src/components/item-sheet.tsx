@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { NutritionLabel } from './nutrition-label';
 import { Sheet } from './ui/sheet';
+import { Button, ButtonLink } from './ui/button';
 import { logFood } from '@/app/actions';
 import { allergenLabel, propertyLabel, conflictingAllergens } from '@/lib/labels';
 import { SERVING_STEPS } from '@/lib/servings';
@@ -62,21 +63,13 @@ export function ItemSheet({
       onClose={onClose}
       footer={
         context.isSignedIn ? (
-          <button
-            type="button"
-            onClick={handleLog}
-            disabled={pending}
-            className="on-accent h-12 w-full rounded-md bg-accent text-input font-semibold text-accent-fg disabled:opacity-50"
-          >
+          <Button type="button" onClick={handleLog} disabled={pending} className="w-full">
             {pending ? 'Adding…' : `Add ${servings}× to ${context.mealPeriodName ?? 'today'}`}
-          </button>
+          </Button>
         ) : (
-          <a
-            href="/login"
-            className="on-accent flex h-12 w-full items-center justify-center rounded-md bg-accent text-input font-semibold text-accent-fg"
-          >
+          <ButtonLink href="/login" className="w-full">
             Sign in to track this
-          </a>
+          </ButtonLink>
         )
       }
     >
@@ -87,7 +80,7 @@ export function ItemSheet({
       )}
 
       {conflicts.length > 0 && (
-        <p className="mt-3 rounded-md bg-danger-bg px-3 py-2 text-body font-semibold text-danger">
+        <p className="mt-3 rounded-[var(--radius-md)] bg-danger-bg px-4 py-2.5 text-body font-semibold text-danger">
           Contains {conflicts.map(allergenLabel).join(', ')} — you asked to avoid that.
         </p>
       )}
@@ -106,7 +99,7 @@ export function ItemSheet({
       )}
 
       {/* The stepper sits directly above the label so the figures visibly move. */}
-      <div className="mt-4 border-t border-text pt-2">
+      <div className="mt-4 border-t border-border pt-3">
         <div className="mb-2 flex items-baseline justify-between">
           <span className="placard text-text-muted">How much did you have</span>
           <span className="data text-body font-semibold">{servings}×</span>
@@ -119,7 +112,7 @@ export function ItemSheet({
               type="button"
               onClick={() => setServings(s)}
               aria-pressed={s === servings}
-              className={`data on-accent h-11 w-14 shrink-0 rounded-sm border text-body transition-colors duration-150 ease-out ${
+              className={`data on-accent h-11 w-14 shrink-0 rounded-full border text-body transition-colors duration-150 ease-out ${
                 s === servings
                   ? 'bg-accent text-accent-fg'
                   : 'border-border text-text-muted'
@@ -136,7 +129,7 @@ export function ItemSheet({
       </div>
 
       {recipe.ingredients && (
-        <details className="mt-4 border-t border-text pt-2">
+        <details className="mt-4 border-t border-border pt-2">
           <summary className="placard cursor-pointer text-text-muted">Ingredients</summary>
           <p className="mt-2 text-meta leading-relaxed text-text-muted">{recipe.ingredients}</p>
         </details>

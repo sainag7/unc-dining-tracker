@@ -59,7 +59,7 @@ export default async function LogPage(props: PageProps<'/log'>) {
   return (
     <>
       <header className="mx-auto w-full max-w-[640px] px-4 pt-3">
-        <div className="flex items-end justify-between gap-3 border-b border-text pb-2">
+        <div className="flex items-end justify-between gap-3 border-b border-border pb-2">
           <div className="min-w-0">
             <h1 className="wordmark truncate">
               {date === today ? 'Today' : formatDate(date).split(',')[0]}
@@ -68,7 +68,7 @@ export default async function LogPage(props: PageProps<'/log'>) {
           </div>
           <Link
             href="/settings"
-            className="-mr-2 flex h-11 shrink-0 items-center rounded-md px-2 text-body font-medium underline underline-offset-2"
+            className="-mr-3 flex h-11 shrink-0 items-center rounded-full px-3 text-body font-semibold text-accent-text"
           >
             Settings
           </Link>

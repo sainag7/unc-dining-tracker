@@ -41,13 +41,13 @@ export function UndoToast({
     >
       <div
         role="status"
-        className="pointer-events-auto mx-auto flex w-full max-w-[640px] items-center gap-3 rounded-md border border-border-strong bg-surface px-4 py-2 shadow-[var(--shadow-sheet)] motion-safe:animate-[sheet-in_200ms_var(--ease)]"
+        className="card pointer-events-auto mx-auto flex w-full max-w-[608px] items-center gap-3 rounded-full px-5 py-2 shadow-[var(--shadow-float)] motion-safe:animate-[sheet-in_200ms_var(--ease)]"
       >
         <span className="min-w-0 flex-1 truncate text-body">{message}</span>
         <button
           type="button"
           onClick={onUndo}
-          className="-mr-2 flex h-11 shrink-0 items-center rounded-md px-2 text-body font-semibold underline underline-offset-2"
+          className="-mr-3 flex h-11 shrink-0 items-center rounded-full px-3 text-body font-semibold text-accent-text"
         >
           Undo
         </button>

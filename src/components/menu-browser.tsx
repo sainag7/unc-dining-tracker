@@ -6,6 +6,7 @@ import { ItemSheet, type SheetContext } from './item-sheet';
 import { MenuRow } from './menu-row';
 import { useTray } from './tray-provider';
 import { Sheet } from './ui/sheet';
+import { Button } from './ui/button';
 import { ChevronDown, Check, Search, Sliders, Close, ArrowsSort } from './ui/icons';
 import { logFood, removeServing } from '@/app/actions';
 import { FILTERABLE_PROPERTIES, propertyLabel } from '@/lib/labels';
@@ -268,7 +269,7 @@ export function MenuBrowser({
           branch, so above sm there was no way into the filter sheet at all.
         */}
         <div className="flex items-center gap-2 py-2">
-          <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-[10px] bg-surface-alt px-3">
+          <div className="card flex h-12 min-w-0 flex-1 items-center gap-2 rounded-full px-4">
             <Search size={16} className="shrink-0 text-text-muted" />
             <input
               type="search"
@@ -285,7 +286,7 @@ export function MenuBrowser({
                 type="button"
                 aria-label="Clear search"
                 onClick={() => updateQuery('')}
-                className="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-text-muted"
+                className="-mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-alt text-text-muted"
               >
                 <Close size={16} />
               </button>
@@ -296,7 +297,7 @@ export function MenuBrowser({
             type="button"
             onClick={() => updateSort(nextSortMode(sortMode))}
             aria-label={`Sort by calories. Currently ${SORT_DESCRIPTION[sortMode]}.`}
-            className={`flex h-10 shrink-0 items-center gap-1 rounded-md px-1.5 text-row font-medium ${
+            className={`card flex h-12 shrink-0 items-center gap-1 rounded-full px-3.5 text-row font-semibold ${
               sortMode === 'station' ? 'text-text-mid' : 'text-accent-text'
             }`}
           >
@@ -312,7 +313,7 @@ export function MenuBrowser({
                 ? `Filters. ${activeProps.length} active.`
                 : 'Filters'
             }
-            className={`-mr-1.5 flex h-10 shrink-0 items-center gap-1 rounded-md px-1.5 text-row font-medium ${
+            className={`card flex h-12 shrink-0 items-center gap-1 rounded-full px-3.5 text-row font-semibold ${
               activeProps.length > 0 ? 'text-accent-text' : 'text-text-mid'
             }`}
           >
@@ -331,7 +332,7 @@ export function MenuBrowser({
                 type="button"
                 onClick={() => updateFilters(activeProps.filter((x) => x !== p))}
                 aria-label={`Remove ${propertyLabel(p)} filter`}
-                className="flex h-8 items-center gap-1 rounded-full border border-border-strong px-2.5 text-meta font-medium"
+                className="card flex h-8 items-center gap-1 rounded-full px-3 text-meta font-semibold"
               >
                 {propertyLabel(p)}
                 <Close size={14} />
@@ -340,7 +341,7 @@ export function MenuBrowser({
             <button
               type="button"
               onClick={() => updateFilters([])}
-              className="h-8 rounded-full px-2 text-meta font-medium underline underline-offset-2"
+              className="h-8 rounded-full px-2 text-meta font-semibold text-accent-text"
             >
               Clear all
             </button>
@@ -359,14 +360,21 @@ export function MenuBrowser({
       {error && (
         <div
           role="alert"
-          className="mx-auto w-full max-w-[640px] border-b border-border px-4 pb-2 text-body font-medium text-danger"
+          className="mx-auto w-full max-w-[640px] px-4 pb-2"
         >
-          {error}
+          <p className="rounded-[var(--radius-md)] bg-danger-bg px-4 py-2.5 text-body font-semibold text-danger">
+            {error}
+          </p>
         </div>
       )}
 
+      {/*
+        No background of its own any more — --bg shows between the station
+        cards, which is what makes them read as separate objects rather than
+        as sections of one long sheet.
+      */}
       <div
-        className="mx-auto w-full max-w-[640px] bg-surface px-4"
+        className="mx-auto w-full max-w-[640px] px-4"
         style={{ paddingBottom: 'calc(var(--tab-bar-h) + var(--tray-bar-h) + 2rem)' }}
       >
         {searching ? (
@@ -378,9 +386,9 @@ export function MenuBrowser({
               onAction={() => updateQuery('')}
             />
           ) : (
-            <section className="mt-2">
+            <section className="card mt-3">
               <StationHead title="Results" count={searchResults.length} />
-              <ul>
+              <ul className="overflow-hidden rounded-b-[var(--radius-xl)]">
                 {searchResults.map(({ item, station }, i) => (
                   <MenuRow key={`${item.id}-${i}`} {...rowProps(item)} stationLabel={station} />
                 ))}
@@ -399,7 +407,7 @@ export function MenuBrowser({
             visibleStations.map((station) => {
               const isClosed = grouped && closed.has(station.name);
               return (
-                <section key={station.name} className="mt-2">
+                <section key={station.name} className="card mt-3">
                   <StationHead
                     title={station.name}
                     count={station.items.length}
@@ -408,7 +416,12 @@ export function MenuBrowser({
                   />
 
                   {!isClosed && (
-                    <ul>
+                    // The clip lives here rather than on the <section> on
+                    // purpose: overflow-hidden on an ancestor kills position:
+                    // sticky, and StationHead above is sticky. On the <ul> it
+                    // rounds the last row's tint into the card corner and
+                    // leaves the header free to pin.
+                    <ul className="overflow-hidden rounded-b-[var(--radius-xl)]">
                       {station.items.map((item, i) => (
                         <MenuRow key={`${item.id}-${i}`} {...rowProps(item)} />
                       ))}
@@ -427,21 +440,17 @@ export function MenuBrowser({
           onClose={() => setShowFilters(false)}
           footer={
             <div className="flex items-center justify-between gap-3">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => updateFilters([])}
                 disabled={activeProps.length === 0}
-                className="flex h-11 items-center rounded-md px-2 text-body font-medium underline underline-offset-2 disabled:opacity-40"
               >
                 Clear all
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowFilters(false)}
-                className="on-accent h-11 rounded-md bg-accent px-6 text-body font-semibold text-accent-fg"
-              >
+              </Button>
+              <Button type="button" onClick={() => setShowFilters(false)}>
                 Show results
-              </button>
+              </Button>
             </div>
           }
         >
@@ -463,7 +472,7 @@ export function MenuBrowser({
                     <span className="text-input">{propertyLabel(prop)}</span>
                     <span
                       aria-hidden
-                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border transition-colors duration-150 ease-out ${
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors duration-150 ease-out ${
                         on
                           ? 'bg-accent text-accent-fg'
                           : 'border-border-strong text-transparent'
@@ -500,13 +509,13 @@ export function MenuBrowser({
 }
 
 /**
- * The placard over the pan.
+ * The placard over the pan, and the top of its card.
  *
  * Pins to the top of the viewport so the station you're looking at is always
- * named — the masthead scrolls away to leave room for it. `bg-bg` has to stay
- * opaque, since rows scroll underneath.
+ * named — the masthead scrolls away to leave room for it. The background has
+ * to stay opaque, since rows scroll underneath.
  *
- * One chevron carries the collapse state; the previous version put the count
+ * One chevron carries the collapse state; an earlier version put the count
  * and the word "hide" side by side, which read as two controls.
  */
 function StationHead({
@@ -540,12 +549,16 @@ function StationHead({
     </>
   );
 
-  // -mx-4 px-4 so the band spans the screen while its text stays in the
-  // column. Sticky so the placard over the pan stays readable while the
-  // pan's contents scroll past — the masthead is deliberately not sticky to
-  // leave room for exactly this.
-  const className =
-    'hairline-t hairline-b sticky top-0 z-10 -mx-4 flex w-[calc(100%+2rem)] items-center justify-between gap-3 bg-section-bg px-4 py-1.5 text-left';
+  // No longer a full-bleed band: the card edge is the boundary now, so the
+  // header just takes the card's top corners. Still sticky, so the placard
+  // stays readable while the pan's contents scroll past — the masthead is
+  // deliberately not sticky to leave room for exactly this.
+  //
+  // Collapsed, the card is nothing but this header, so it rounds on all four
+  // corners and drops the divider it would otherwise draw against row one.
+  const className = `sticky top-0 z-10 flex w-full items-center justify-between gap-3 rounded-t-[var(--radius-xl)] bg-surface px-4 py-3 text-left ${
+    collapsed ? 'rounded-b-[var(--radius-xl)]' : 'hairline-b'
+  }`;
 
   if (!onToggle) {
     return <div className={className}>{inner}</div>;
@@ -578,13 +591,9 @@ function EmptyState({
       <p className="text-input font-semibold">{title}</p>
       <p className="mx-auto mt-1 max-w-xs text-body text-text-muted">{body}</p>
       {actionLabel && onAction && (
-        <button
-          type="button"
-          onClick={onAction}
-          className="mt-4 h-11 rounded-md border border-border-strong px-5 text-body font-medium"
-        >
+        <Button type="button" variant="secondary" onClick={onAction} className="mt-4">
           {actionLabel}
-        </button>
+        </Button>
       )}
     </div>
   );

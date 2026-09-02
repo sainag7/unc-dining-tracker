@@ -3,25 +3,35 @@
 /*
   Tray.
 
-  The reference is the serving line: a placard over each pan, a tray in your
-  hand, and a number that has to be readable while you're standing up holding
-  a phone in one hand. Type and rules do the work. Almost nothing is a card.
+  Rounded surfaces on a tinted ground. The menu is a stack of cards — one per
+  station — and the two things you touch most, the tray and the tab bar, float
+  as pills above them. Selection is a filled pill, never an underline.
+
+  This replaced an earlier pass built on hairlines and near-zero radius, where
+  almost nothing was a card and a 2px underline carried every active state.
+  DESIGN.md argues the change; the short version is that this app is used
+  one-handed, standing up, and a filled pill is a bigger, more obvious target
+  than a rule under a word.
 
   One accent, and it is Carolina blue — #4b9cd3, the university colour, the
-  same value in both modes. It carries the active tab underline, the quantity
+  same value in both modes. It carries the selected tab pill, the quantity
   stepper, focus rings, the "serving now" dot, and the two calorie rings. It
   is not a theme — if it starts showing up anywhere else, that's a bug.
 
-  The one exception is --macro-carb / --macro-fat / --macro-protein, below.
+  --deep is the second fill, and it has exactly one job: the large pill CTAs
+  and the tray bar, where the reference puts a saturated blue with light text
+  on it. Carolina cannot do that job in light mode — it measures 3.00:1 on
+  white, so text on it has to be navy, and a navy-on-Carolina tray bar is not
+  the same object as a white-on-navy one. In dark mode a navy pill would
+  vanish into the ground, so --deep resolves to Carolina there and its
+  foreground flips to navy. Same role, inverted.
+
+  The other exception is --macro-carb / --macro-fat / --macro-protein, below.
   DESIGN.md argues it: three rings that must be told apart is a categorical
   encoding, which is the single job one hue cannot do.
 
-  This list and the one in DESIGN.md used to disagree — this file said "the
-  add button's filled state, and the tray total", that one said "the quantity
-  stepper and the serving-now dot", and both claimed to be exhaustive.
-
   Every colour below was checked against its own background by
-  `npm run check-contrast`, which covers 26 pairs and exits non-zero on
+  `npm run check-contrast`, which covers 27 pairs and exits non-zero on
   failure. The ratios are recorded in DESIGN.md.
 
   The greys are mixed from the navy hue (#13294b) rather than being neutral.
@@ -33,18 +43,26 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --bg: #f5f7fa;
+  /*
+    The ground, and the card that sits on it.
+
+    --bg is more tinted than a card design usually needs (#eaf0f7, not the
+    #f5f7fa this used to be) for one reason: a white card on #f5f7fa measures
+    1.07:1, which is not a visible edge. At #eaf0f7 it is 1.15:1 — still not a
+    contrast pair in the WCAG sense, since a card fill conveys no state, but
+    enough that the shadow has something to land against.
+  */
+  --bg: #eaf0f7;
   --surface: #ffffff;
-  /* The ground under the search field and the tray bar. */
-  --surface-alt: #edf1f6;
+  /* Inset grounds *on* a card: the segmented-control groove, the sheet's
+     close button. Reads at 1.19:1 against white. */
+  --surface-alt: #e6ecf4;
   /*
     The station header band, and only that.
 
     It used to share --surface-alt, which sits 1.13:1 from the rows in light
     and 1.05:1 in dark — a step you cannot see, so the header read as floating
-    text rather than a band. It needs its own token because darkening the
-    shared one drags the tray bar with it, and the tray total is --accent-text,
-    which falls to 3.80:1 on a ground that dark.
+    text rather than a band.
   */
   --section-bg: #d8e1ed;
 
@@ -73,6 +91,14 @@
   --accent-fg: #13294b;
   --accent-text: #2e7baf;
 
+  /* The large-CTA fill. White on navy, 14.52:1 — see the note up top. */
+  --deep: #13294b;
+  --deep-fg: #ffffff;
+  /* Over the calorie goal, on the deep fill. --danger is a dark red built to
+     sit on a light ground; on navy it is nearly invisible, so the over state
+     needs its own value per mode. 8.54:1 here. */
+  --on-deep-danger: #ffb4a8;
+
   /* A row with something on the tray. */
   --row-active: #f0f7fc;
 
@@ -85,30 +111,37 @@
     job a single hue genuinely cannot do. Three identical rings are a legend
     you read rather than a picture you glance at.
     Confined to the macros card on /log. Nothing else may use them.
-
-    Not the reference design's own hues — its purple is 1.81:1 on our dark
-    card and its orange 2.11:1 on our light one. These are the same hue
-    families re-picked per mode, and each clears 4.5:1, the text bar, because
-    the label above each ring is tinted to match it.
   */
   --macro-carb: #0c7568;
   --macro-fat: #7b3fb5;
   --macro-protein: #a85f10;
 
+  /*
+    Elevation.
+
+    Two steps: --shadow-card for things resting on the ground (station cards,
+    the search field, the day-summary cards), --shadow-float for the two bars
+    that genuinely hover over scrolling content. Both are navy-tinted rather
+    than black — a neutral shadow under a navy-tinted card reads as grime.
+  */
+  --shadow-card: 0 1px 2px rgb(19 41 75 / 0.04), 0 4px 16px rgb(19 41 75 / 0.06);
+  --shadow-float: 0 2px 6px rgb(19 41 75 / 0.08), 0 12px 32px rgb(19 41 75 / 0.14);
   --shadow-sheet: 0 -10px 44px rgb(19 41 75 / 0.18);
 
   /*
-    Heights of the two fixed bars, so content above can clear both.
+    Heights of the two floating bars, so content above can clear both.
 
-    Both bars now size themselves from their padding rather than reading these
+    Both bars size themselves from their padding rather than reading these
     back, so these have to be kept in step by hand:
-      tab bar  9 + 18 icon + 4 gap + 15 label + 13 + 1 rule = 60
-      tray bar 8 + 18 + 15 + 8                      + 1 rule = 50
+      tab bar   8 gap + [6 track + 6 + 18 icon + 3 gap + 15 label + 6 + 6] + 8 = 76
+      tray bar  50 pill + 8 gap                                                = 58
+    The tab bar's safe-area inset is added by the bar itself and by whatever
+    offsets against it, so it is deliberately NOT in this number.
     Get one wrong and the list's bottom padding either clips the last row or
     leaves a gap under it.
   */
-  --tab-bar-h: 3.75rem;
-  --tray-bar-h: 3.125rem;
+  --tab-bar-h: 4.75rem;
+  --tray-bar-h: 3.625rem;
 
   --dur-fast: 150ms;
   --dur-base: 200ms;
@@ -118,17 +151,20 @@
 }
 
 .dark {
-  /* Navy-tinted near-black, not #000 — the same hue as the body text in
-     light mode. --surface matches --bg; --surface-alt is what lifts the
-     section headers and the tray bar off the list. */
-  --bg: #0a0f1a;
-  --surface: #0a0f1a;
-  --surface-alt: #0e1522;
-  --section-bg: #1e293f;
+  /*
+    Navy-tinted near-black, not #000 — the same hue as the body text in light
+    mode. Unlike the previous pass, --surface no longer equals --bg: a card
+    design needs the two to differ or every card is invisible. --bg dropped to
+    #060a12 and --surface rose to #131b2b to open that gap.
+  */
+  --bg: #060a12;
+  --surface: #131b2b;
+  --surface-alt: #1b2436;
+  --section-bg: #263148;
 
-  --border: #1b2536;
-  --border-soft: #161f2e;
-  --border-strong: #28344a;
+  --border: #222d42;
+  --border-soft: #1b2536;
+  --border-strong: #33405a;
 
   --text: #eaf0f7;
   --text-mid: #c7d3e1;
@@ -137,12 +173,20 @@
 
   /* Carolina does not invert. It is the same #4b9cd3 in both modes — the
      brand colour staying put is the whole point. On this ground it clears
-     4.5:1 unaided (6.38), so here it is also the readable blue. */
+     4.5:1 unaided (5.74), so here it is also the readable blue. */
   --accent: #4b9cd3;
   --accent-fg: #0a2b45;
   --accent-text: #4b9cd3;
 
-  --row-active: #0e1725;
+  /* A navy pill on a near-black ground is not a pill, it's a hole. The deep
+     fill becomes Carolina here and its foreground flips to navy — 4.84:1. */
+  --deep: #4b9cd3;
+  --deep-fg: #0a2b45;
+  /* Inverted with the fill: on Carolina the over state has to be a dark red,
+     not a light one. 4.58:1. */
+  --on-deep-danger: #5c0f0a;
+
+  --row-active: #16203a;
 
   --danger: #f0897f;
   --danger-bg: #2a1518;
@@ -151,6 +195,13 @@
   --macro-fat: #b98ae8;
   --macro-protein: #f0a44a;
 
+  /*
+    A soft ambient shadow on a near-black ground is invisible — there is
+    nothing darker to cast onto. Dark mode draws its card edges with a border
+    instead (see .card below) and keeps only a tight contact shadow.
+  */
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-float: 0 8px 28px rgb(0 0 0 / 0.6);
   --shadow-sheet: 0 -10px 44px rgb(0 0 0 / 0.55);
 }
 
@@ -170,19 +221,21 @@
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
   --color-accent-text: var(--accent-text);
+  --color-deep: var(--deep);
+  --color-deep-fg: var(--deep-fg);
+  --color-on-deep-danger: var(--on-deep-danger);
   --color-macro-carb: var(--macro-carb);
   --color-macro-fat: var(--macro-fat);
   --color-macro-protein: var(--macro-protein);
   --color-danger: var(--danger);
   --color-danger-bg: var(--danger-bg);
 
-  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
 
   /*
     The scale. Seven steps, and components use these names rather than
-    inventing arbitrary values — the previous pass had thirteen distinct
-    sizes, six of them one-offs like text-[0.9375rem].
+    inventing arbitrary values — an earlier pass had thirteen distinct sizes,
+    six of them one-offs like text-[0.9375rem].
 
     --text-input is 16px because anything smaller makes iOS zoom the page
     when the field takes focus.
@@ -208,11 +261,19 @@
   --text-data-xl: 2.125rem;
   --text-data-xl--line-height: 2.25rem;
 
-  /* Literals, not var() — these are Tailwind namespaces, so @theme emits them
-     into :root itself. Referencing :root here would be circular. */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 1rem;
+  /*
+    Radius. Every step moved up: what used to be 4/8/16 is now 8/14/20, plus a
+    24 for the station cards. Re-valuing the existing names rather than adding
+    a parallel scale is deliberate — the thirty-odd rounded-md call sites
+    soften without being touched.
+
+    Literals, not var() — these are Tailwind namespaces, so @theme emits them
+    into :root itself. Referencing :root here would be circular.
+  */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.5rem;
 
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
 }
@@ -241,6 +302,35 @@ body {
 }
 
 /*
+  A surface resting on the ground.
+
+  Named rather than repeated, because the light and dark modes draw the edge
+  by different means and a call site should not have to know that: light has a
+  visible ambient shadow and no border, dark has a border and almost no
+  shadow. Fill alone is not enough in either — --surface sits 1.15:1 from --bg
+  in both modes, which is a step you can feel but not see.
+*/
+/*
+  In @layer components, not unlayered, and this is not cosmetic. Tailwind's
+  utilities live in the `utilities` layer; unlayered CSS beats *any* layered
+  rule regardless of specificity. Written bare, `.card`'s border-radius and
+  box-shadow silently won over `rounded-full` and `shadow-[…]` at every call
+  site — the nav pill came out at 24px instead of a pill, and both floating
+  bars got the resting shadow instead of the floating one. Nothing errors; it
+  just quietly ignores the utility you wrote.
+*/
+@layer components {
+  .card {
+    background: var(--surface);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-card);
+  }
+  .dark .card {
+    border: 1px solid var(--border);
+  }
+}
+
+/*
   The placard over the pan: small, bold, tracked open, uppercase. Station
   names and section headers only.
 */
@@ -250,26 +340,6 @@ body {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-/* Every figure the reader compares to another figure. Tabular so a column of
-   calories lines up on the decimal even when the digits change. */
-/*
-  Hairlines.
-
-  0.5px is a real hairline on a 2x screen and rounds to 1px on a 1x one, which
-  is the right degradation: the alternative, a 1px rule everywhere, is visibly
-  heavy on the phone this is designed for. Named rather than repeated as
-  border-[0.5px] at thirty call sites.
-*/
-.hairline-t {
-  border-top: 0.5px solid var(--border);
-}
-.hairline-b {
-  border-bottom: 0.5px solid var(--border);
-}
-.hairline-row {
-  border-bottom: 0.5px solid var(--border-soft);
 }
 
 /*
@@ -284,37 +354,71 @@ body {
   text-transform: uppercase;
 }
 
+/*
+  Every figure the reader compares to another figure.
+
+  This used to be a monospace face. It isn't any more: the numbers are set in
+  the same sans as everything else, which is what the reference does and what
+  keeps a calorie count from looking like a terminal. What actually holds a
+  column of calories in line is tabular-nums plus the fixed-width, right-
+  aligned box each figure sits in (w-[34px] on the menu row, w-10 on the tray
+  sheet) — not the face. tabular-nums also stops the tray total and the
+  stepper count from reflowing as they change under your thumb.
+*/
 .data {
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
-  /* Tabular figures are wide by construction, so a column of them reads as a
-     row of glyphs rather than a number. This pulls them back together without
-     costing the alignment that made them tabular in the first place. */
   letter-spacing: -0.01em;
 }
 
-/* The venue wordmark. */
+/* The venue wordmark. -0.02em, not the -0.03em this carried under Geist:
+   Jakarta is already the tighter face and -0.03em collides at 28px. */
 .wordmark {
   font-size: var(--text-display);
   line-height: 2rem;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
 }
 
-/* Inputs are underlines, not boxes — the one idiom worth keeping from the
-   old board. :focus-visible below still wins for keyboard users. */
+/*
+  Hairlines.
+
+  0.5px is a real hairline on a 2x screen and rounds to 1px on a 1x one, which
+  is the right degradation. Still the row divider inside a card — the card
+  edge separates stations, the hairline separates items within one.
+*/
+.hairline-t {
+  border-top: 0.5px solid var(--border);
+}
+.hairline-b {
+  border-bottom: 0.5px solid var(--border);
+}
+.hairline-row {
+  border-bottom: 0.5px solid var(--border-soft);
+}
+
+/*
+  Text fields.
+
+  These were underlines. A bare rule under a value is the opposite of the
+  rounded filled field this design is built on, and it left the tap target
+  ambiguous — the underline is at the bottom of a box whose top edge you have
+  to guess at. Now a filled, rounded surface with the same footprint as every
+  other control. Focus is still :focus-visible below for keyboard users; this
+  :focus rule is what a touch user sees.
+*/
 .field-underline {
-  background: transparent;
+  background: var(--surface);
   border: 0;
-  border-bottom: 1px solid var(--border-strong);
-  border-radius: 0;
-  padding: 0.5rem 0;
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  box-shadow: var(--shadow-card);
 }
 .field-underline:focus {
   outline: none;
-  border-bottom-width: 2px;
-  border-bottom-color: var(--accent-text);
+  box-shadow:
+    var(--shadow-card),
+    inset 0 0 0 2px var(--accent-text);
 }
 
 :focus-visible {
@@ -326,6 +430,10 @@ body {
    the foreground colour instead. */
 .on-accent:focus-visible {
   outline-color: var(--accent-fg);
+}
+/* Same problem on the deep fill, whose foreground is the light one. */
+.on-deep:focus-visible {
+  outline-color: var(--deep-fg);
 }
 
 @media (prefers-reduced-motion: reduce) {

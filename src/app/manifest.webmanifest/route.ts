@@ -14,7 +14,7 @@ export function GET() {
     display: 'standalone',
     // --bg and --accent, light mode. These drifted from the palette once
     // already; if they look wrong, check globals.css first.
-    background_color: '#f6f8fb',
+    background_color: '#eaf0f7',
     theme_color: '#4b9cd3',
     orientation: 'portrait',
     icons: [

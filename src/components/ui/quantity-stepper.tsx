@@ -69,7 +69,7 @@ export function QuantityStepper({
   }
 
   return (
-    <span className="flex h-[27px] items-center gap-1.5 rounded-[14px] bg-accent px-2 py-[3px] text-accent-fg">
+    <span className="flex h-[27px] items-center gap-1.5 rounded-full bg-accent px-2 py-[3px] text-accent-fg">
       <button
         type="button"
         onClick={tap(onRemove)}

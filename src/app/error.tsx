@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { Button, ButtonLink } from '@/components/ui/button';
 
 export default function Error({ reset }: { error: Error; reset: () => void }) {
   return (
@@ -11,19 +11,12 @@ export default function Error({ reset }: { error: Error; reset: () => void }) {
         data may still be syncing.
       </p>
       <div className="mt-6 flex gap-3">
-        <button
-          type="button"
-          onClick={reset}
-          className="on-accent inline-flex h-11 items-center rounded-md bg-accent px-5 text-body font-semibold text-accent-fg"
-        >
+        <Button type="button" onClick={reset}>
           Try again
-        </button>
-        <Link
-          href="/"
-          className="inline-flex h-11 items-center rounded-md border border-border-strong px-5 text-body font-medium"
-        >
+        </Button>
+        <ButtonLink href="/" variant="secondary">
           Back to the menu
-        </Link>
+        </ButtonLink>
       </div>
     </main>
   );

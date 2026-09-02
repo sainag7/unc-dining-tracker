@@ -12,12 +12,12 @@ import { ProgressRing } from './ui/progress-ring';
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    // Fill and edge together. Neither is enough alone here: in light the white
-    // fill is only 1.07:1 from the page, and in dark --surface *equals* --bg,
-    // so a filled card would be invisible. --surface-alt lifts it there, and
-    // the border-strong hairline (1.45 light, 1.46 dark) is what actually
-    // draws the boundary in both.
-    <section className="rounded-lg border border-border-strong bg-surface p-4 dark:bg-surface-alt">
+    // The .card class carries fill, radius and the per-mode edge treatment —
+    // shadow in light, border in dark. The dark:bg-surface-alt override this
+    // used to need is gone with it: --surface no longer equals --bg in dark,
+    // so a card there is a real surface rather than a hole with a rule around
+    // it.
+    <section className="card p-5">
       <h2 className="text-input font-semibold">{title}</h2>
       {children}
     </section>

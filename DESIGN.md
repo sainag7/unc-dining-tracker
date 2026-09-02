@@ -5,20 +5,43 @@ the serving line at Chase or Lenoir, deciding what goes on the tray. The screen
 has one job: show what's out right now, let them tap to add it, show the running
 total. Every decision below follows from that.
 
+**The shape language is rounded surfaces on a tinted ground.** The menu is a
+stack of cards, one per station; the two things you touch most — the tray and
+the nav — float as pills over them; and selection, everywhere it appears, is a
+filled pill.
+
+This replaced an earlier pass built the opposite way, on 0.5px hairlines and
+near-zero radius, where almost nothing was a card and a 2px rule under a word
+carried every active state. That pass is worth naming because most of the
+arguments below were first written to defend it. The reason it changed: the
+reader here is one-handed and standing up, and a filled pill is a bigger, more
+obvious, more thumbable target than an underline. The hairline survives in one
+role — the divider *between rows inside a card* — because there the card edge
+is already doing the separating and a second heavy rule would be noise.
+
 Tokens live in `src/app/globals.css`. Components use token names — no raw hex
 anywhere outside that file.
 
 ## Color
 
 One accent, and it is Carolina blue — `#4b9cd3`, the university colour, the
-same value in both modes. It carries the active tab underline, the quantity
-stepper, focus rings, the "serving now" dot, and the two calorie rings — the
-tray's plate and the log's Calories card, which are one job, the same number
-drawn twice. If it starts appearing anywhere else, that's a bug, not a style.
+same value in both modes. It carries the selected pill in every segmented
+control, the selected day in the week strip, the active nav tab, the quantity
+stepper, focus rings, the "serving now" dot, and the log's Calories ring. If it
+starts appearing anywhere else, that's a bug, not a style.
 
 *(This list and the one in `globals.css` disagreed for a while — that file named
 the add button's fill and the tray total, this one named the stepper and the
 serving-now dot, and both said "exactly four things". They are one list now.)*
+
+**`--deep` is the second fill, and it has exactly one job**: the large pill
+CTAs and the tray bar. Carolina cannot do that job in light mode — it is 3.00:1
+on white, so text on it has to be navy, and a navy-on-Carolina tray bar is not
+the same object as the white-on-navy one the design wants. So `--deep` is navy
+`#13294b` with white on it in light. In dark a navy pill would be a hole in the
+ground rather than a button, so `--deep` resolves to Carolina and `--deep-fg`
+flips to navy. Same role, inverted — which is why one token pair covers both
+and `check-contrast` needs only one pairing for it.
 
 **The macros are the one sanctioned exception.** `--macro-carb`,
 `--macro-fat` and `--macro-protein` are three hues that exist for one card on
@@ -30,9 +53,9 @@ the same bug the paragraph above describes.
 
 | Token | Light | on card | Dark | on card |
 |---|---|---|---|---|
-| `--macro-carb` | `#0c7568` | 5.59 | `#3fd0bd` | 10.01 |
-| `--macro-fat` | `#7b3fb5` | 6.52 | `#b98ae8` | 7.17 |
-| `--macro-protein` | `#a85f10` | 4.87 | `#f0a44a` | 9.23 |
+| `--macro-carb` | `#0c7568` | 5.59 | `#3fd0bd` | 9.00 |
+| `--macro-fat` | `#7b3fb5` | 6.52 | `#b98ae8` | 6.45 |
+| `--macro-protein` | `#a85f10` | 4.87 | `#f0a44a` | 8.29 |
 
 Checked at **4.5:1**, the text bar, not the 3:1 an arc alone would need — each
 label is tinted to match its ring, so one value does both jobs. These are not
@@ -45,13 +68,13 @@ what makes the app read as UNC without turning it blue.
 
 | Token | Light | Dark |
 |---|---|---|
-| `--bg` | `#f5f7fa` | `#0a0f1a` |
-| `--surface` | `#ffffff` | `#0a0f1a` |
-| `--surface-alt` | `#edf1f6` | `#0e1522` |
-| `--section-bg` | `#d8e1ed` | `#1e293f` |
-| `--border` | `#e2e8f0` | `#1b2536` |
-| `--border-soft` | `#edf1f6` | `#161f2e` |
-| `--border-strong` | `#c6d0de` | `#28344a` |
+| `--bg` | `#eaf0f7` | `#060a12` |
+| `--surface` | `#ffffff` | `#131b2b` |
+| `--surface-alt` | `#e6ecf4` | `#1b2436` |
+| `--section-bg` | `#d8e1ed` | `#263148` |
+| `--border` | `#e2e8f0` | `#222d42` |
+| `--border-soft` | `#edf1f6` | `#1b2536` |
+| `--border-strong` | `#c6d0de` | `#33405a` |
 | `--text` | `#13294b` | `#eaf0f7` |
 | `--text-mid` | `#3d5175` | `#c7d3e1` |
 | `--text-muted` | `#4f6079` | `#93a3ba` |
@@ -59,33 +82,39 @@ what makes the app read as UNC without turning it blue.
 | `--accent` | `#4b9cd3` | `#4b9cd3` |
 | `--accent-fg` | `#13294b` | `#0a2b45` |
 | `--accent-text` | `#2e7baf` | `#4b9cd3` |
-| `--row-active` | `#f0f7fc` | `#0e1725` |
+| `--deep` | `#13294b` | `#4b9cd3` |
+| `--deep-fg` | `#ffffff` | `#0a2b45` |
+| `--on-deep-danger` | `#ffb4a8` | `#5c0f0a` |
+| `--row-active` | `#f0f7fc` | `#16203a` |
 | `--danger` | `#a8221b` | `#f0897f` |
 | `--danger-bg` | `#f6e3e1` | `#2a1518` |
 
-Four of these need explaining.
+Five of these need explaining.
 
 **Carolina is a fill, not a colour for text.** On white it measures 3.00:1 —
 that is the ceiling, not a near miss, and against any off-white ground it is
 lower. So in light mode it never carries text or a small label: it is the
-stepper's background, the tab underline, the focus ring and the dot, and navy
-sits *on top* of it at 4.84:1. In dark mode it is 6.38:1 on the ground and is
-safe as text, which is why `--accent-text` differs between modes when `--accent`
-does not.
+stepper's background, the selected pill in every switcher, the focus ring and
+the dot, and navy sits *on top* of it at 4.84:1. In dark mode it is 5.74:1 on
+`--surface` and safe as text, which is why `--accent-text` differs between modes
+when `--accent` does not.
 
-**`--accent-text` has two jobs**: the active tab bar item, and the tray total —
-which the plate ring now draws as well as prints, in the same colour, because it
-is the same fact. It is the only blue light mode can use as text. `#2e7baf` is
-4.60:1 on `--surface` and 4.05:1 on `--surface-alt`, the tray bar's ground.
+That property is also what makes Carolina work as a selection pill: the pill is
+a fill and its label is navy, which is exactly the arrangement Carolina is good
+at. It is why selection is a pill and not, say, blue text.
 
-That second number is the tight one. It clears 3:1 but not 4.5:1, and it passes
-only because the tray total is 20px at weight 600 — WCAG's large-text band,
-where 3:1 is the bar. **Shrink the tray total below ~18px, or drop it to a
-normal weight, and that pairing becomes a real failure.** `check-contrast`
-carries the pair with that reasoning in a comment.
+**`--accent-text` is the readable blue.** It is the only blue light mode can
+use as text: `#2e7baf` at 4.60:1 on `--surface`. It carries the tertiary text
+buttons — Retry, Clear all, Back to sign in — and the station count.
 
-`--accent-text` is 4.28:1 on `--bg`, which is why that pairing does not exist —
-both the tab bar and the tray bar are surfaces, not the page ground.
+It used to carry the tray total too, on `--surface-alt`, at 4.05:1. That was
+the tightest pairing in the app and it only passed on the large-text exemption,
+with a note warning that shrinking the total below 18px would break it. That
+whole hazard is gone: the tray total now sits on `--deep` as `--deep-fg`, at
+14.52:1 light and 4.84:1 dark. It has margin at any size.
+
+`--accent-text` is 4.28:1 on `--bg`, which is why no such pairing exists — every
+place it appears as text is a card or a bar, not the page ground.
 
 **Why the station header has its own ground.** `--section-bg` is the one band
 in the app whose entire job is to be distinguishable. It used to share
@@ -96,10 +125,25 @@ bar with it, and the tray total is `--accent-text`, which falls to 3.80:1 on a
 ground that dark. At `#d8e1ed` / `#1e293f` the step is 1.32:1 in both modes and
 the label still clears 11:1.
 
-**Why `--surface` equals `--bg` in dark.** There is no lift to be had from a
-near-black on a near-black. What separates the list from the bars in dark mode
-is `--surface-alt` plus a hairline, not a surface colour. In light mode the
-distinction is real: rows are white, the page and the section bands are tinted.
+**Why `--surface` no longer equals `--bg` in dark.** It used to, and the
+argument was that there is no lift to be had from a near-black on a near-black.
+That argument only held while nothing was a card. Once the menu is a stack of
+them, a surface equal to the ground is not a subtle card — it is no card at all.
+So `--bg` dropped to `#060a12` and `--surface` rose to `#131b2b` to open a gap.
+
+The gap is 1.15:1, in **both** modes. That is not a contrast pair in the WCAG
+sense — a card fill conveys no state and carries no text of its own — but it is
+also not enough to draw an edge by itself. So neither mode relies on it:
+
+| | draws the card edge with |
+|---|---|
+| light | `--shadow-card`, an ambient navy-tinted shadow |
+| dark | a 1px `--border`; a soft shadow on near-black is invisible |
+
+Both live in the `.card` class in `globals.css`, so no call site has to know
+which mode it is in. `--bg` is also more tinted than it was (`#eaf0f7`, from
+`#f5f7fa`) for the same reason: a white card on the old ground measured 1.07:1,
+which gave the shadow nothing to land against.
 
 **Four greys, not two.** `--text` is the item name, `--text-mid` is a quiet
 control, `--text-muted` is a secondary line, `--text-faint` is the dietary tags
@@ -123,7 +167,7 @@ real ratios on every run rather than omitting them:
 | Pairing | Light | Dark | Why |
 |---|---|---|---|
 | `accent fill on row-active` | 2.78 | passes | the stepper pill |
-| `border-strong on surface` | 1.56 | 1.53 | the quantity-0 ghost button |
+| `border-strong on surface` | 1.56 | 1.66 | the quantity-0 ghost button |
 
 Both have the same defence: the thing that identifies the control clears the bar
 even though its fill or outline does not. The stepper pill carries its count in
@@ -139,18 +183,34 @@ Never add an exemption without a reason a reader can weigh.
 
 ## Type
 
-**Geist** for everything, **Geist Mono** for every figure the reader compares to
-another figure — calories, the tray total, dates, counts — with
-`font-variant-numeric: tabular-nums` so a column of numbers lines up as the
-digits change.
+**Plus Jakarta Sans, and nothing else.** A geometric sans with near-circular
+bowls and a tall x-height — the same family of shape as the rounded surfaces it
+sits on, which is the whole reason it replaced Geist. Weights 500/600/700/800
+are loaded; nothing references anything outside that range.
 
-A third display face was considered and cut. Geist at 600 with −0.02em tracking
-does the wordmark, and a third family is the accessory to take off before
-leaving the house.
+**There is no second face for figures.** Geist Mono used to carry every number
+the reader compares — calories, the tray total, dates, counts. It doesn't any
+more, and the reasoning is worth recording because it looks like a regression:
+
+- What actually aligns a column of calories is not the face. It is
+  `font-variant-numeric: tabular-nums` plus the **fixed-width, right-aligned
+  box** each figure sits in — `w-[34px]` on the menu row, `w-10` on the tray
+  sheet. Both survive.
+- `tabular-nums` is also what stops the tray total and the stepper count from
+  reflowing as they change under your thumb. That is the failure a proportional
+  face would actually cause, and it is the thing to check first if numbers
+  start jittering.
+- What the mono was *costing* was that every number in the app read as terminal
+  output. In a design whose loudest object is a number on a pill, that is the
+  wrong voice.
+
+`.data` is therefore now just the numeric feature settings and the tracking. If
+figures ever do jitter in place, pointing `.data` back at a mono is a one-line
+revert and nothing else in this document depends on it.
 
 | Role | Size / line-height | Weight | Tracking |
 |---|---|---|---|
-| `wordmark` | 28 / 32 | 700 | −0.03em |
+| `wordmark` | 28 / 32 | 700 | −0.02em |
 | `placard` | 12 / 16 | 600 | +0.08em, uppercase |
 | `section-label` | 11 / 15 | 700 | +0.07em, uppercase |
 | `text-input` | 16 / 24 | 400–600 | — |
@@ -178,8 +238,8 @@ themes. Logged is the row tint plus the accent colour, in both.
 
 `.data` carries `letter-spacing: -0.01em`. Tabular figures are wide by
 construction and a column of them reads as a row of glyphs otherwise. It also
-buys real room: `1940` — the largest calorie count UNC publishes — measures
-exactly 34px, which is the width of the column it has to fit in.
+buys real room: `1940` — the largest calorie count UNC publishes — has to fit
+the 34px column, and the tracking is what keeps it there.
 
 Inputs are 16px because anything smaller makes iOS zoom the page when the field
 takes focus. **The search field is the one place that breaks the row's 14px
@@ -201,25 +261,57 @@ table.
 
 ## Layout
 
-**Two cards, and only two.** The log screen's Calories and Macros panels are the
-one place with a filled, bordered, rounded container, against a doc that
-otherwise says almost nothing is a card. A ring needs a ground to sit on, and a
-dashboard is the one screen where the numbers *are* the content rather than a
-label on something else. Neither the fill nor the border is enough alone —
-white on the page is 1.07:1 in light, and in dark `--surface` *equals* `--bg`,
-so the fill lifts to `--surface-alt` and a `--border-strong` hairline (1.45
-light, 1.46 dark) is what actually draws the edge.
+**One station, one card.** The menu is a stack of them on a tinted ground, and
+the `.card` class carries fill, radius and the per-mode edge treatment so no
+call site has to think about it. The two panels on `/log` use the same class.
+
+This inverts what this section used to say, which was "two cards, and only
+two". The old argument was that a card is a container you have to justify and
+rules do the job more cheaply. What it under-weighted is that a station *is* a
+container — the whole menu is a list of groups — and drawing that grouping with
+a sticky band and a hairline meant the reader had to infer from typography
+what a card states outright.
+
+**One detail here is load-bearing and silent if you get it wrong.** The card
+needs `overflow-hidden` so the last row's active tint clips into the rounded
+corner. `overflow-hidden` on an ancestor also kills `position: sticky`, and the
+station header **is** sticky. So the clip goes on the `<ul>`, never on the
+`<section>`:
+
+```
+<section class="card">
+  <StationHead />                                    ← sticky top-0
+  <ul class="overflow-hidden rounded-b-[…]"> rows </ul>
+</section>
+```
+
+Put it one level up and nothing errors — the placard just quietly stops
+pinning.
+
+A collapsed station is a card containing only its header, so the header rounds
+on all four corners and drops the divider it would otherwise draw against row
+one. That is the `collapsed ?` branch in `StationHead`.
 
 
 - **Container `max-w-[640px]`, centred**, on the masthead, list, tray bar and
   tab bar. Before this the list ran the full viewport, so an item name sat on
   the far left and its calorie count on the far right with nothing between
   them. This was the single worst problem in the old UI.
-- **Fixed bars are full-bleed outside, centred inside.** The rule and the
-  surface span the window; the content sits in the same 640px column as
-  everything above it. The tab bar used to be a bare `grid-cols-2` across the
-  viewport, so on a wide screen its two labels sat at 25% and 75% — nowhere
-  near the content they navigate.
+- **The two bottom bars are floating pills, 608px wide.** 608 is the content
+  column's *inner* width (640 minus its 16px padding), so each pill lines up
+  with the cards above it rather than with the window. They used to be
+  full-bleed bars capped with hairlines; stacked, the two of them read as one
+  110px slab of chrome across the bottom of the screen. Floating them lets the
+  list show through between and around. Before *that* they were a bare
+  `grid-cols-2` across the whole viewport, so on a wide screen the two labels
+  sat at 25% and 75%, nowhere near the content they navigate.
+- **`--tab-bar-h` and `--tray-bar-h` are hand-maintained**, with the arithmetic
+  written out in `globals.css`. Nothing measures the bars — the list's bottom
+  padding is `calc(--tab-bar-h + --tray-bar-h + 2rem)`, so getting one wrong
+  either clips the last row or leaves a gap under it. Currently 76px and 58px;
+  the rendered nav measures 76px exactly. The safe-area inset is deliberately
+  *not* in either number, because the bar and everything offsetting against it
+  both add it separately.
 - **`scrollbar-gutter: stable` on `html`.** Without it a classic scrollbar
   takes ~15px off the layout viewport, `mx-auto` recentres the column in what's
   left, and the centred content drifts ~7px left of the fixed bars — which
@@ -231,10 +323,21 @@ light, 1.46 dark) is what actually draws the edge.
 - **Rows are 11px of padding around their content**, which lands at 60px with a
   tags line and 42px without. The row no longer sizes itself around a 44px
   button, because the button is 27px — see below.
-- Spacing on a 4px scale. Radius: 4 small, 8 medium, 14 stepper pill, 16 sheet.
-- **Hairlines are 0.5px** (`.hairline-t` / `.hairline-b` / `.hairline-row`). A
-  true hairline on a 2× screen, rounding to 1px on a 1× one. A 1px rule between
-  every row is visibly heavy on the phone this is designed for.
+- Spacing on a 4px scale. **Radius is `--radius-sm` 8 / `--radius-md` 14 /
+  `--radius-lg` 20 / `--radius-xl` 24**, plus `rounded-full` on everything that
+  is a control. Every step moved up from the old 4/8/16 by re-valuing the
+  existing token names rather than adding a parallel scale, so the thirty-odd
+  `rounded-md` call sites softened without being touched. If a control's radius
+  looks wrong, check whether it should just be `rounded-full` — most should.
+- **Elevation is two steps.** `--shadow-card` for things resting on the ground,
+  `--shadow-float` for the two bars that genuinely hover over scrolling
+  content. Both are navy-tinted, not black: a neutral shadow under a
+  navy-tinted card reads as grime. Dark mode flattens both nearly to nothing
+  and draws its edges with `--border` instead — see the card table above.
+- **Hairlines are 0.5px** (`.hairline-t` / `.hairline-b` / `.hairline-row`) and
+  now have exactly one job: the divider **between rows inside a card**. The
+  card edge separates stations; the hairline separates items within one. A true
+  hairline on a 2× screen, rounding to 1px on a 1× one.
 - One breakpoint, `sm:`, and it only centres sheets on wide screens. The search
   field used to collapse below it; it doesn't any more.
 
@@ -248,24 +351,38 @@ a boxed glyph on every row became the loudest thing on screen while telling you
 almost nothing — the signal is the rare item that *lacks* a tag. Spelled out,
 too: `V` and `VG` differ by one character and mean quite different things.
 
-**A row with something on it tints edge to edge.** `--row-active`, bled past the
-list's own padding with `-mx-4 px-4`, and the calorie figure changes colour. That
-row-level state is what makes "what's already on my tray" scannable while you're
-still browsing, without reading a single number.
+**A row with something on it tints edge to edge**, and the calorie figure
+changes colour. That row-level state is what makes "what's already on my tray"
+scannable while you're still browsing, without reading a single number. The
+tint used to bleed past the list padding with `-mx-4 px-4`, back when the list
+was one flat sheet and a band across the whole screen was the only way to make
+it read as more than an inset chip. Now it runs the card's full width and stops
+at its edge, which is what a card is for.
 
-**The masthead is three rows, not five.** The venue is the `<h1>` and the other
-venue sits beside it as a link, so the switcher costs nothing. Service hours
-live in the status line under the meal tabs, which also says whether the period
-you're looking at is the one being served.
+**The masthead is a hall switcher, a date stepper and a period switcher.** The
+two switchers are the same `SegmentedControl`. The hall row used to be an
+`<h1>` with the other venue beside it as an underlined link — which made the
+venue you were on and the venue you could reach two different kinds of object,
+so you had to read the heading to work out what the link was an alternative to.
+As one pill switcher with one selected item they are what they always were.
+
+Dropping the painted venue name removes the page's only `<h1>`, so there is an
+`sr-only` one. Do not delete it thinking it is dead markup.
+
+Service hours live in the status line under the meal tabs, which also says
+whether the period you're looking at is the one being served.
 
 ## The tray bar
 
 **This is the signature element, and the one place the design is allowed to be
 loud.** Everything around it is hairlines and a single accent.
 
-It's a slim sticky bar above the tab bar carrying what's on the tray right now,
-that opens the day's items as a sheet. It's grounded in the literal object the
+It's a floating pill above the nav carrying what's on the tray right now, that
+opens the day's items as a sheet. It's grounded in the literal object the
 student is holding, and it's what makes this a tracker rather than a menu page.
+
+**It is the one solid block of colour in the app** — `--deep`, at 50px tall,
+the full width of the content column. Nothing else uses that fill at that size.
 
 Two lines on the left — `4 items on tray`, then **which meal period the tray
 belongs to** — and the total on the right at 20px mono. The period line is not
@@ -274,16 +391,29 @@ ambiguous the moment you step to another tab. You cannot tell whether 840 is
 lunch or the whole day. It's derived from the entries already in hand via
 `groupByMealPeriod`, so it costs no query.
 
-In dark mode the bar is `--surface-alt`, because `--surface` equals `--bg` there
-and a plain surface would leave it floating on a hairline.
+Everything on it is `--deep-fg` or a transparency of it, which means the whole
+bar inverts with the mode in one step rather than each element resolving its own
+colour. The one thing that doesn't is the over-goal state, which needs
+`--on-deep-danger`: `--danger` is a dark red built for a light ground, and on
+navy it is nearly invisible.
+
+It used to be a full-bleed `--surface-alt` strip with a hairline over it —
+`--surface-alt` specifically because `--surface` equalled `--bg` in dark and a
+plain surface would have left it floating on nothing. Neither of those
+constraints exists any more.
 
 ### The plate
 
 Leading the bar is a 28px ring — `ui/plate-ring.tsx` — that fills clockwise from
 twelve o'clock as the day's calories approach the goal, with a filled dot in the
 middle. A plate seen from above. It closes at the goal, and past it the ring and
-the number both turn `--danger`: the arc cannot say "130%", so the colour does,
-and the exact figure is right beside it.
+the number both turn `--on-deep-danger`: the arc cannot say "130%", so the
+colour does, and the exact figure is right beside it.
+
+Its colours are the pill's, not the page's — arc `--deep-fg`, track
+`--deep-fg/25` — because it only ever appears there. It used `--accent-text` and
+`--border-strong` back when the bar was a light strip; on navy the first is
+muddy and the second is a grey line on a dark ground.
 
 Three things about it are deliberate.
 
@@ -335,8 +465,16 @@ displaying that number is the element's whole job.
 
 150–200ms, `cubic-bezier(0.2, 0, 0, 1)`, transform and opacity only, so nothing
 triggers layout. Four moments, all earning their place: the segmented-control
-indicator translating between tabs, the add button's pop on confirm, sheets
-sliding up, the tray expanding.
+pill translating between tabs, the add button's pop on confirm, sheets sliding
+up, the tray expanding.
+
+**The pill is one element that moves, not a background redrawn per item.** It is
+absolutely positioned and placed from the active segment's `offsetLeft` /
+`offsetWidth` in a `useLayoutEffect`, with a `ResizeObserver` to re-measure on
+font swap and container resize. That is what makes it read as the same object
+sliding rather than one highlight going out and another coming on. Segments stay
+`<Link>`s — every one is a real URL and has to remain shareable and
+middle-clickable.
 
 **framer-motion was not added.** The indicator is a translated element and the
 rest are CSS transitions. The brief said to add it only if genuinely used, and
@@ -397,6 +535,14 @@ The no-flash script lands 77 characters into `<body>`, before any content.
 - **Station collapse is stored as overrides**, not as the full closed set, so
   `stationsToCollapse()` keeps making the call for stations the user has never
   touched — including ones that appear on a menu for the first time.
+- **There is one `Button`**, in `ui/button.tsx`, with `primary` / `secondary` /
+  `ghost` variants and a `ButtonLink` twin for when the action is a navigation.
+  There was no such component before, and the same three className strings were
+  retyped at about ten call sites — where they had already drifted: two
+  different heights for the same primary action, `rounded-md` in some places
+  and `rounded-full` in others, and every tertiary button carrying `underline
+  underline-offset-2`, which made it read as body copy someone had linked
+  rather than as a control.
 - **Icons are hand-rolled SVG** in `ui/icons.tsx`. Fifteen glyphs, one stroke
   width, one grid. An icon package would be the largest dependency in the
   project.
@@ -439,8 +585,19 @@ The no-flash script lands 77 characters into `<body>`, before any content.
 
 ## What has no test coverage
 
-All 103 tests are pure logic in `src/lib`, and `vitest.config.mts` uses
+All 104 tests are pure logic in `src/lib`, and `vitest.config.mts` uses
 `environment: 'node'` with a `*.test.ts` glob — `.tsx` isn't matched. **Nothing
 in this document is protected by a test.** The suite staying green proves the
 data layer is untouched; it proves nothing about the UI. Check visually, in both
 modes, at 375px and on desktop.
+
+Four things in particular have no automated guard and fail quietly:
+
+- the sticky station placard, if `overflow-hidden` lands on the `<section>`
+  instead of the `<ul>`;
+- `--tab-bar-h` / `--tray-bar-h`, if either drifts from the bars' real padding
+  — check against a long menu, not a short one;
+- number jitter, if `tabular-nums` ever stops applying to the tray total or the
+  stepper count;
+- the card edge in **dark** mode, which is a border rather than a shadow, so a
+  card that reads fine in light can be invisible there.

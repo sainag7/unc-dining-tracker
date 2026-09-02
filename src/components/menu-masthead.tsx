@@ -44,9 +44,16 @@ const sentenceCase = (name: string) =>
 /**
  * Hall, date, and meal period.
  *
- * Deliberately not sticky. At five rows tall it's over a third of a phone
- * screen, and the thing actually worth keeping on screen while you scroll a
- * long menu is the station placard — which pins at the top instead.
+ * Two segmented controls stacked over a date stepper. The hall switcher used
+ * to be an <h1> with the other venues beside it as underlined links, which
+ * made the venue you were on and the venues you could reach two different
+ * kinds of object — you had to read the heading to know what the links were
+ * alternatives to. As a filled pill switcher they're one control with one
+ * selected item, which is what they always were.
+ *
+ * Deliberately not sticky. It's over a third of a phone screen, and the thing
+ * actually worth keeping on screen while you scroll a long menu is the
+ * station placard — which pins at the top of its own card instead.
  */
 export function MenuMasthead({
   halls,
@@ -68,7 +75,16 @@ export function MenuMasthead({
   const period = periods.find((p) => p.name === currentPeriod);
   const isToday = date === today;
   const hallName = shortHall(halls.find((h) => h.slug === currentHall)?.name ?? 'Menu');
-  const otherHalls = halls.filter((h) => h.slug !== currentHall);
+
+  // Every hall, including the one you're on — a switcher that hides the
+  // current option is a menu, not a switch.
+  const hallSegments: Segment[] = halls.map((h) => ({
+    value: h.slug,
+    label: shortHall(h.name),
+    // href carries `period` through, which is what keeps dinner selected when
+    // you cross from Chase to Lenoir.
+    href: href({ hall: h.slug, date, period: currentPeriod }),
+  }));
 
   const periodSegments: Segment[] = periods.map((p) => ({
     value: p.name,
@@ -94,51 +110,44 @@ export function MenuMasthead({
         : null;
 
   return (
-    <header className="border-b border-border">
-      <div className="mx-auto w-full max-w-[640px] px-4 pt-2">
+    <header>
+      <div className="mx-auto w-full max-w-[640px] px-4 pt-3">
         {/*
-          The venue is the heading, and the other venues sit beside it as
-          links. This used to be a "Tray" wordmark over a separate hall
-          switcher — two bands, 92px, and the word "Tray" naming both the app
-          and the sheet at the bottom of the same screen. The product keeps
-          its name in the tab bar and the title; the header says where you are.
+          The venue name is no longer painted anywhere — the selected pill
+          says it. This keeps the document's one <h1> for anything reading the
+          page structurally rather than looking at it.
         */}
-        <div className="flex items-center gap-3">
-          <h1 className="wordmark min-w-0 truncate">{hallName}</h1>
+        <h1 className="sr-only">{hallName} menu</h1>
 
-          <nav aria-label="Dining hall" className="flex min-w-0 items-center gap-3">
-            {otherHalls.map((h) => (
-              <Link
-                key={h.slug}
-                href={href({ hall: h.slug, date, period: currentPeriod })}
-                className="truncate text-body font-medium text-text-muted underline underline-offset-4"
-              >
-                {shortHall(h.name)}
-              </Link>
-            ))}
-          </nav>
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <SegmentedControl
+              segments={hallSegments}
+              value={currentHall}
+              label="Dining hall"
+              fill
+            />
+          </div>
 
-          <span className="flex-1" />
-
-          <div className="-mr-2 flex shrink-0 items-center">
+          <div className="shrink-0">
             <ThemeToggle />
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="mt-2 flex items-center gap-2">
           <Link
             href={href({ hall: currentHall, date: addDays(date, -1), period: currentPeriod })}
             aria-label="Previous day"
-            className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text-muted"
+            className="card flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-text-mid"
           >
             <ChevronLeft />
           </Link>
 
           {/* Service hours ride along with the date rather than taking a row
               of their own — they're a property of the day you're looking at. */}
-          <span className="data min-w-0 flex-1 truncate text-center text-body font-medium">
+          <span className="data min-w-0 flex-1 truncate text-center text-body font-semibold">
             {isToday ? 'Today' : formatDate(date, { weekday: 'short' })}
-            <span className="text-text-muted">
+            <span className="font-medium text-text-muted">
               {' · '}
               {formatDate(date, { month: 'short', day: 'numeric' })}
             </span>
@@ -147,7 +156,7 @@ export function MenuMasthead({
           <Link
             href={href({ hall: currentHall, date: addDays(date, 1), period: currentPeriod })}
             aria-label="Next day"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text-muted"
+            className="card flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-text-mid"
           >
             <ChevronRight />
           </Link>
@@ -156,7 +165,7 @@ export function MenuMasthead({
           {!isToday && (
             <Link
               href={href({ hall: currentHall, date: today, period: currentPeriod })}
-              className="-mr-2 flex h-11 shrink-0 items-center rounded-md px-2 text-meta font-medium underline underline-offset-2"
+              className="card flex h-11 shrink-0 items-center rounded-full px-4 text-meta font-semibold text-accent-text"
             >
               Today
             </Link>
@@ -164,30 +173,32 @@ export function MenuMasthead({
         </div>
 
         {periodSegments.length > 0 && (
-          <SegmentedControl
-            segments={periodSegments}
-            value={currentPeriod ?? ''}
-            label="Meal period"
-            scrollActiveIntoView
-          />
+          <div className="mt-2">
+            <SegmentedControl
+              segments={periodSegments}
+              value={currentPeriod ?? ''}
+              label="Meal period"
+              scrollActiveIntoView
+            />
+          </div>
         )}
 
         {status && (
-          <p className="data hairline-t py-1.5 text-micro text-text-muted">{status}</p>
+          <p className="data px-1 pt-2 text-micro font-medium text-text-muted">{status}</p>
+        )}
+
+        {/*
+          Adds write to the date on screen, not to today. That's what makes
+          backfilling a day you forgot possible, and it's invisible unless it's
+          said out loud — so it is.
+        */}
+        {!isToday && (
+          <p className="mt-2 inline-flex rounded-full bg-danger-bg px-3 py-1 text-meta font-semibold text-danger">
+            Logging to{' '}
+            {formatDate(date, { weekday: 'short', month: 'short', day: 'numeric' })}, not today
+          </p>
         )}
       </div>
-
-      {/*
-        Adds write to the date on screen, not to today. That's what makes
-        backfilling a day you forgot possible, and it's invisible unless it's
-        said out loud — so it is.
-      */}
-      {!isToday && (
-        <p className="mx-auto w-full max-w-[640px] px-4 pb-2 text-meta font-medium text-danger">
-          Logging to {formatDate(date, { weekday: 'short', month: 'short', day: 'numeric' })}, not
-          today
-        </p>
-      )}
     </header>
   );
 }

@@ -47,10 +47,12 @@ export function MenuRow({
   const logged = servings > 0;
 
   return (
-    // -mx-4 px-4 bleeds the active tint past the list's own padding, so a
-    // logged row reads as a band across the screen rather than an inset chip.
+    // The tint runs the full width of the card and stops at its edge. It used
+    // to bleed past the list padding with -mx-4, back when the list was one
+    // flat sheet and a band across the whole screen was the only way to make
+    // a logged row read as more than an inset chip.
     <li
-      className={`hairline-row -mx-4 flex items-center gap-[10px] px-4 py-[13px] last:border-0 ${
+      className={`hairline-row flex items-center gap-[10px] px-4 py-[13px] last:border-0 ${
         logged ? 'bg-row-active' : ''
       }`}
     >

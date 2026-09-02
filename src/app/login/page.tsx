@@ -33,7 +33,7 @@ export default async function LoginPage({
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-12">
-      <div className="flex items-baseline justify-between gap-3 border-b border-text pb-2">
+      <div className="flex items-baseline justify-between gap-3 border-b border-border pb-2">
         <Link href="/" className="wordmark">
           Tray
         </Link>

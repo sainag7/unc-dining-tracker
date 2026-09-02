@@ -1,10 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { ChevronUp } from './ui/icons';
 import { Sheet } from './ui/sheet';
+import { ButtonLink } from './ui/button';
 import { PlateRing } from './ui/plate-ring';
 import { useTray } from './tray-provider';
 import { QuantityStepper } from './ui/quantity-stepper';
@@ -33,11 +33,12 @@ function TrayShell({ children }: { children: React.ReactNode }) {
   if (pathname === '/login' || pathname === '/settings' || pathname.startsWith('/log')) return null;
 
   return (
+    // No ground and no rule of its own any more — the pill inside is the
+    // whole object, and it floats over the list rather than capping it. The
+    // pb-2 is the gap between this pill and the nav pill below it, and it is
+    // counted in --tray-bar-h.
     <div
-      // --surface-alt, not --surface: in dark mode --surface equals --bg, so a
-      // plain surface here would leave the bar floating with nothing but a
-      // hairline to separate it from the list.
-      className="hairline-t fixed inset-x-0 z-40 bg-surface-alt"
+      className="fixed inset-x-0 z-40 px-4 pb-2"
       style={{ bottom: 'calc(var(--tab-bar-h) + env(safe-area-inset-bottom))' }}
     >
       {children}
@@ -61,8 +62,7 @@ export function TrayNotice() {
     <TrayShell>
       <div
         role="status"
-        className="mx-auto flex w-full max-w-[640px] items-center gap-2 px-4"
-        style={{ height: 'var(--tray-bar-h)' }}
+        className="mx-auto flex h-[50px] w-full max-w-[608px] items-center gap-2 rounded-full bg-surface px-5 shadow-[var(--shadow-float)]"
       >
         <span className="min-w-0 flex-1 truncate text-body text-text-muted">
           Couldn&rsquo;t load your tray.
@@ -73,7 +73,7 @@ export function TrayNotice() {
             setRetrying(true);
             router.refresh();
           }}
-          className="-mr-2 flex h-11 shrink-0 items-center rounded-md px-2 text-body font-medium text-accent-text"
+          className="-mr-2 flex h-11 shrink-0 items-center rounded-full px-3 text-body font-semibold text-accent-text"
         >
           {retrying ? 'Retrying…' : 'Retry'}
         </button>
@@ -230,8 +230,13 @@ export function TrayBar({
             `Show what is on your tray. ${count} ${count === 1 ? 'item' : 'items'}, ` +
             (calorieGoal ? `${calories} of ${calorieGoal} calories.` : `${calories} calories.`)
           }
-          className="mx-auto flex w-full max-w-[640px] items-center gap-3 px-4"
-          style={{ height: 'var(--tray-bar-h)' }}
+          // The deep fill, and the only place in the app that uses it at this
+          // size. This is the object the whole app exists around, so it is the
+          // one thing on screen that is allowed to be a solid block of colour.
+          // 608px, not 640: it matches the content column's inner width, so
+          // the pill lines up with the cards above it rather than with the
+          // window.
+          className="on-deep mx-auto flex h-[50px] w-full max-w-[608px] items-center gap-3 rounded-full bg-deep px-5 text-deep-fg shadow-[var(--shadow-float)]"
         >
           {/*
             The plate leads the row. aria-hidden, and the goal is spoken through
@@ -241,7 +246,7 @@ export function TrayBar({
           {calorieGoal !== undefined && <PlateRing calories={calories} goal={calorieGoal} />}
 
           <span className="min-w-0 flex-1 text-left">
-            <span className="block truncate text-sm text-text">
+            <span className="block truncate text-sm font-semibold">
               {count === 0 ? 'Tray empty' : `${count} ${count === 1 ? 'item' : 'items'} on tray`}
             </span>
             {/*
@@ -251,7 +256,7 @@ export function TrayBar({
               whole day.
             */}
             {period && (
-              <span className="data block truncate text-micro text-text-muted">{period}</span>
+              <span className="data block truncate text-micro text-deep-fg/70">{period}</span>
             )}
           </span>
 
@@ -261,15 +266,15 @@ export function TrayBar({
           */}
           <span
             aria-live="polite"
-            className={`data shrink-0 text-total font-semibold ${
-              over ? 'text-danger' : 'text-accent-text'
+            className={`data shrink-0 text-total font-bold ${
+              over ? 'text-on-deep-danger' : 'text-deep-fg'
             }`}
           >
             {calories.toLocaleString()}
           </span>
-          <span className="shrink-0 text-micro text-text-muted">cal</span>
+          <span className="shrink-0 text-micro text-deep-fg/70">cal</span>
 
-          <ChevronUp size={16} className="shrink-0 text-text-muted" />
+          <ChevronUp size={16} className="shrink-0 text-deep-fg/70" />
         </button>
       </TrayShell>
 
@@ -289,12 +294,9 @@ export function TrayBar({
           snapping
           initialSnap="peek"
           footer={
-            <Link
-              href="/log"
-              className="flex h-11 items-center justify-center rounded-md border border-border-strong text-body font-medium"
-            >
+            <ButtonLink href="/log" variant="secondary" className="w-full">
               Open the full log
-            </Link>
+            </ButtonLink>
           }
         >
           {count === 0 ? (
