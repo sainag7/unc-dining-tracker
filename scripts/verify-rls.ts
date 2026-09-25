@@ -114,6 +114,62 @@ async function main() {
       'a user sees only their own profile',
     );
 
+    console.log('\nLogging functions (migration 0003)');
+    const slot = {
+      p_recipe_id: recipe.id,
+      p_service_date: '2026-08-21',
+      p_meal_period_name: null,
+      p_hall_id: null,
+    };
+    const { error: logErr } = await bob.client.rpc('log_food', { ...slot, p_servings: 1 });
+    check(!logErr, 'log_food writes a line', logErr?.message);
+    await bob.client.rpc('log_food', { ...slot, p_servings: 2 });
+    const { data: bobLines } = await bob.client
+      .from('food_log')
+      .select('user_id, servings')
+      .eq('service_date', '2026-08-21');
+    check(
+      bobLines?.length === 1 && bobLines[0].servings === 3,
+      'a second log_food on the same slot adds to the line',
+      JSON.stringify(bobLines),
+    );
+    check(bobLines?.[0]?.user_id === bob.id, 'log_food writes as the caller, never anyone else');
+
+    const { data: removed } = await bob.client.rpc('remove_serving', slot);
+    check(removed === 1, 'remove_serving takes one serving off', `removed ${removed}`);
+
+    const { data: aliceAfter } = await alice.client
+      .from('food_log')
+      .select('id')
+      .eq('service_date', '2026-08-21');
+    check(!aliceAfter?.length, "another user's log_food never lands in your log");
+
+    const { data: aliceRemoved } = await alice.client.rpc('remove_serving', slot);
+    check(aliceRemoved === null, "remove_serving can't reach another user's line");
+
+    const { error: anonRpcErr } = await createClient<Database>(URL, ANON, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    }).rpc('log_food', { ...slot, p_servings: 1 });
+    check(Boolean(anonRpcErr), 'log_food is refused signed out');
+
+    console.log('\nDeleting an account');
+    const carol = await makeUser(`rls-carol-${stamp}@example.com`);
+    await carol.client.rpc('log_food', { ...slot, p_servings: 1 });
+    const { error: deleteErr } = await carol.client.rpc('delete_my_account');
+    check(!deleteErr, 'delete_my_account succeeds', deleteErr?.message);
+
+    const { data: carolUser } = await admin.auth.admin.getUserById(carol.id);
+    check(!carolUser?.user, 'the auth user is gone');
+    if (carolUser?.user) await admin.auth.admin.deleteUser(carol.id);
+    const { count: carolRows } = await admin
+      .from('food_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', carol.id);
+    check(carolRows === 0, 'their food log went with it', `${carolRows} rows left`);
+
+    const { data: bobStill } = await admin.auth.admin.getUserById(bob.id);
+    check(Boolean(bobStill?.user), 'nobody else was deleted');
+
     console.log('\nAnonymous access');
     const anon = createClient<Database>(URL, ANON, {
       auth: { persistSession: false, autoRefreshToken: false },
