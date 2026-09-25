@@ -1,0 +1,83 @@
+# XcodeGen spec — the source of truth for Tray.xcodeproj.
+#
+#   brew install xcodegen
+#   xcodegen            # from ios/, after changing this file
+#
+# Edit this, not the .xcodeproj: regenerating overwrites hand edits to the
+# project file.
+name: Tray
+options:
+  bundleIdPrefix: edu.unc
+  deploymentTarget:
+    iOS: "18.0"
+  developmentLanguage: en
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: 2.0.0
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # Empty until there's an Apple Developer Program team. Simulator builds
+    # don't need one; archiving for the App Store does. See ios/README.md.
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  Tray:
+    type: application
+    platform: iOS
+    sources:
+      - path: Tray
+        excludes:
+          - "Config/*.xcconfig"
+    configFiles:
+      Debug: Tray/Config/Tray.xcconfig
+      Release: Tray/Config/Tray.xcconfig
+    dependencies:
+      - package: Supabase
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: edu.unc.tray
+        PRODUCT_NAME: Tray
+        INFOPLIST_FILE: Tray/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Tray/Resources/Tray.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+        ENABLE_PREVIEWS: YES
+
+  TrayTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: TrayTests
+    dependencies:
+      - target: Tray
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: edu.unc.tray.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Tray.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Tray"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+
+schemes:
+  Tray:
+    build:
+      targets:
+        Tray: all
+        TrayTests: [test]
+    test:
+      targets:
+        - TrayTests
+    run:
+      config: Debug
+    archive:
+      config: Release

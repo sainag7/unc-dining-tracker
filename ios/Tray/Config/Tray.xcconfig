@@ -1,0 +1,6 @@
+// Build settings shared by every configuration.
+//
+// The Supabase values live in Secrets.xcconfig, which is gitignored. Copy
+// Secrets.example.xcconfig to start one. `#include?` so a fresh clone still
+// builds — the app then shows a "not configured" screen instead of crashing.
+#include? "Secrets.xcconfig"
