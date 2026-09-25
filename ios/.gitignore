@@ -1,0 +1,6 @@
+Tray/Config/Secrets.xcconfig
+xcuserdata/
+*.xcuserstate
+build/
+DerivedData/
+.swiftpm/

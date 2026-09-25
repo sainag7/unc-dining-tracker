@@ -137,7 +137,48 @@ export type Database = {
       scraper_runs: Table<ScraperRunRow>;
     };
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    // Migration 0003. Nullable args are `| null` rather than optional so a
+    // caller has to decide about the slot's hall and meal, not forget them.
+    Functions: {
+      log_food: {
+        Args: {
+          p_recipe_id: number;
+          p_servings: number;
+          p_service_date: string;
+          p_meal_period_name: string | null;
+          p_hall_id: number | null;
+        };
+        Returns: number;
+      };
+      remove_serving: {
+        Args: {
+          p_recipe_id: number;
+          p_service_date: string;
+          p_meal_period_name: string | null;
+          p_hall_id: number | null;
+        };
+        /** How much came off, or null when the slot was empty. */
+        Returns: number | null;
+      };
+      restore_log: {
+        Args: {
+          p_recipe_id: number;
+          p_service_date: string;
+          p_meal_period_name: string | null;
+          p_hall_id: number | null;
+          p_servings: number;
+          p_calories_snapshot: number | null;
+          p_protein_snapshot: number | null;
+          p_carbs_snapshot: number | null;
+          p_fat_snapshot: number | null;
+        };
+        Returns: number;
+      };
+      delete_my_account: {
+        Args: Record<string, never>;
+        Returns: undefined;
+      };
+    };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

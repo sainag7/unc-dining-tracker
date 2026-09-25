@@ -17,6 +17,10 @@ build a daily calorie and macro total.
 
 Next.js 16 (App Router) · Supabase (Postgres + Auth) · Tailwind v4 · Vercel Cron
 
+There's also a native SwiftUI iPhone app in [`ios/`](ios/README.md). It uses the same Supabase
+project, and its logging rules are the same Postgres functions the web app calls
+(`supabase/migrations/0003_log_rpcs.sql`).
+
 ## Getting started
 
 ```bash
@@ -75,6 +79,7 @@ In your Supabase project:
    add these to the **Redirect URLs** allow list:
 
    ```
+   tray://auth-callback             # the iOS app — see ios/README.md
    https://<app>.vercel.app/**
    https://<app>-*.vercel.app/**   # preview deploys — the host changes every push
    http://localhost:3000/**
@@ -142,9 +147,6 @@ not be swallowed by "Sugars".
 - **Offline support.** The manifest makes the app installable, but there's no service
   worker. Deliberate: cached menu data that silently goes stale is worse than a page that
   admits it can't load.
-- **iOS.** The app is mobile-first and its data access all goes through the Supabase client,
-  so a Capacitor wrap stays viable. Clearing App Store guideline 4.2 will need real native
-  features — Apple Health write-back, push notifications — not just a WebView.
 - **Other dining locations.** The parser works on any `dining.unc.edu/locations/<slug>`
   page, so adding cafés is a row in `dining_halls`, not new code.
 

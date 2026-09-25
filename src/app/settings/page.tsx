@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getProfile } from '@/lib/log';
 import { SettingsForm } from '@/components/settings-form';
+import { DeleteAccount } from '@/components/delete-account';
 import { signOut } from './actions';
 
 export default async function SettingsPage() {
@@ -50,6 +51,16 @@ export default async function SettingsPage() {
           Sign out
         </button>
       </form>
+
+      <div className="mt-6">
+        <DeleteAccount />
+      </div>
+
+      <p className="mt-10 text-meta text-text-muted">
+        <Link href="/privacy" className="underline">
+          Privacy policy
+        </Link>
+      </p>
     </main>
   );
 }

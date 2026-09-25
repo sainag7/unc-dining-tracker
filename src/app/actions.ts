@@ -3,7 +3,6 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { campusToday } from '@/lib/dates';
-import { servingsAfterRemoval } from '@/lib/log';
 
 export interface ActionResult {
   ok: boolean;
@@ -29,43 +28,6 @@ export interface RemoveResult extends ActionResult {
 
 const NOT_SIGNED_IN = 'Sign in to keep track of what you eat.';
 
-/**
- * One line on the tray: a recipe eaten at a particular hall, meal and date.
- *
- * This is the key `food_log` is unique on (migration 0002). Both halves of it
- * are nullable, and Postgres never matches a null with `=`, so the filters have
- * to switch to `is` — getting that wrong silently matches nothing and turns
- * every add back into an insert.
- */
-interface Slot {
-  serviceDate: string;
-  mealPeriodName: string | null;
-  hallId: number | null;
-}
-
-function slotQuery(
-  db: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  recipeId: number,
-  slot: Slot,
-) {
-  const query = db
-    .from('food_log')
-    .select('id, servings')
-    .eq('user_id', userId)
-    .eq('recipe_id', recipeId)
-    .eq('service_date', slot.serviceDate);
-
-  const withPeriod =
-    slot.mealPeriodName === null
-      ? query.is('meal_period_name', null)
-      : query.eq('meal_period_name', slot.mealPeriodName);
-
-  return slot.hallId === null
-    ? withPeriod.is('hall_id', null)
-    : withPeriod.eq('hall_id', slot.hallId);
-}
-
 /*
  * Why these revalidate '/log' and not '/'.
  *
@@ -84,8 +46,9 @@ function slotQuery(
 /**
  * Records that the user ate something.
  *
- * Macros are snapshotted from the recipe at log time: UNC revises recipes, and
- * a day you already logged should never quietly change its totals afterwards.
+ * The rules live in the database now (migration 0003, `log_food`) so the iOS
+ * app shares them: macros are snapshotted at log time, and a second helping of
+ * something already on the tray moves the number rather than adding a line.
  */
 export async function logFood(input: {
   recipeId: number;
@@ -106,84 +69,31 @@ export async function logFood(input: {
     return { ok: false, error: 'Servings must be between 0 and 50.' };
   }
 
-  const slot = {
-    serviceDate: input.serviceDate ?? campusToday(),
-    mealPeriodName: input.mealPeriodName ?? null,
-    hallId: input.hallId ?? null,
-  };
-
-  // Both only need user.id and the recipe id, so they go together. Run in
-  // series this was two round trips deep on the write path, which is the one
-  // the user is actually waiting on.
-  const [{ data: recipe }, { data: existing }] = await Promise.all([
-    supabase
-      .from('recipes')
-      .select('id, calories, protein_g, carbs_g, fat_g')
-      .eq('id', input.recipeId)
-      .maybeSingle(),
-    slotQuery(supabase, user.id, input.recipeId, slot).maybeSingle(),
-  ]);
-
-  if (!recipe) return { ok: false, error: "That item isn't on the menu any more." };
-
-  // Second helping of something already on the tray: move the number, don't
-  // add a line. The snapshot stays as it was — logFood's rule is that a day
-  // already logged never quietly changes its totals, and UNC can revise a
-  // recipe between the first plate and the second.
-  if (existing) {
-    const { error } = await supabase
-      .from('food_log')
-      .update({ servings: existing.servings + servings })
-      .eq('id', existing.id)
-      .eq('user_id', user.id);
-
-    if (error) return { ok: false, error: `Could not save that: ${error.message}` };
-
-    revalidatePath('/log');
-    return { ok: true, logId: existing.id };
-  }
-
-  const { data: inserted, error } = await supabase
-    .from('food_log')
-    .insert({
-      user_id: user.id,
-      recipe_id: recipe.id,
-      service_date: slot.serviceDate,
-      meal_period_name: slot.mealPeriodName,
-      hall_id: slot.hallId,
-      servings,
-      calories_snapshot: recipe.calories,
-      protein_snapshot: recipe.protein_g,
-      carbs_snapshot: recipe.carbs_g,
-      fat_snapshot: recipe.fat_g,
-    })
-    .select('id')
-    .single();
+  const { data: logId, error } = await supabase.rpc('log_food', {
+    p_recipe_id: input.recipeId,
+    p_servings: servings,
+    p_service_date: input.serviceDate ?? campusToday(),
+    p_meal_period_name: input.mealPeriodName ?? null,
+    p_hall_id: input.hallId ?? null,
+  });
 
   if (error) return { ok: false, error: `Could not save that: ${error.message}` };
 
-  // 'layout' so the tab bar's running total refreshes along with the pages.
   revalidatePath('/log');
-  return { ok: true, logId: inserted?.id };
+  return { ok: true, logId: logId ?? undefined };
 }
 
 /**
  * Takes one serving back off a recipe for a given slot.
  *
  * The menu row knows a recipe, a date, a hall and a meal — not a log id — and
- * that set is exactly the slot key, so there is at most one row to find. It
- * either shrinks that row or deletes it, per `servingsAfterRemoval`: the
- * `servings > 0` check constraint means a 1× line can't be updated to zero.
+ * that set is exactly the slot key, so there is at most one row to find.
+ * `remove_serving` either shrinks it or deletes it, per `servingsAfterRemoval`,
+ * and locks the row while it does so overlapping taps can't collapse into one.
  *
  * Scoped identically to `getLoggedServingsByRecipe`, which is what puts the
  * count on the button. Filtering differently here would take away something the
  * count never included.
- *
- * Read-modify-write, with no atomic decrement available: two overlapping calls
- * can read the same row and collapse into one subtraction. The caller's
- * router.refresh() settles it, so the worst case is a number that lands one
- * higher, never a corrupted row. A version guard would be worse — it would turn
- * deliberate fast tapping into error toasts.
  */
 export async function removeServing(input: {
   recipeId: number;
@@ -198,30 +108,18 @@ export async function removeServing(input: {
 
   if (!user) return { ok: false, error: NOT_SIGNED_IN };
 
-  const { data: line } = await slotQuery(supabase, user.id, input.recipeId, {
-    serviceDate: input.serviceDate ?? campusToday(),
-    mealPeriodName: input.mealPeriodName ?? null,
-    hallId: input.hallId ?? null,
-  }).maybeSingle();
-
-  if (!line) return { ok: false, error: 'Nothing to remove.' };
-
-  const next = servingsAfterRemoval(line.servings);
-
-  // The user_id filter is belt-and-braces; RLS already scopes this to the owner.
-  const { error } =
-    next === null
-      ? await supabase.from('food_log').delete().eq('id', line.id).eq('user_id', user.id)
-      : await supabase
-          .from('food_log')
-          .update({ servings: next })
-          .eq('id', line.id)
-          .eq('user_id', user.id);
+  const { data: removed, error } = await supabase.rpc('remove_serving', {
+    p_recipe_id: input.recipeId,
+    p_service_date: input.serviceDate ?? campusToday(),
+    p_meal_period_name: input.mealPeriodName ?? null,
+    p_hall_id: input.hallId ?? null,
+  });
 
   if (error) return { ok: false, error: error.message };
+  if (removed === null) return { ok: false, error: 'Nothing to remove.' };
 
   revalidatePath('/log');
-  return { ok: true, removed: next === null ? line.servings : 1 };
+  return { ok: true, removed };
 }
 
 export async function updateServings(logId: number, servings: number): Promise<ActionResult> {
@@ -274,14 +172,9 @@ export async function removeLog(logId: number): Promise<ActionResult> {
  *
  * Not logFood: that re-reads the recipe and takes a fresh snapshot, so undoing
  * a delete could silently change the day's totals if UNC revised the recipe in
- * between. An undo has to restore, not re-log.
- *
- * It adds to whatever is in the slot rather than inserting blindly. Migration
- * 0002 made (user, date, recipe, meal, hall) unique, so if you delete a line
- * and then log the same thing again before the undo toast times out, a bare
- * insert violates the index and the undo fails with a constraint error. The
- * line is the same line either way; restoring it means putting the servings
- * back onto it.
+ * between. An undo has to restore, not re-log. `restore_log` also adds onto the
+ * slot if it was re-logged before the undo toast timed out, rather than
+ * tripping the unique index from migration 0002.
  */
 export async function restoreLog(entry: {
   recipeId: number;
@@ -301,48 +194,22 @@ export async function restoreLog(entry: {
 
   if (!user) return { ok: false, error: NOT_SIGNED_IN };
 
-  const slot = {
-    serviceDate: entry.serviceDate,
-    mealPeriodName: entry.mealPeriodName,
-    hallId: entry.hallId,
-  };
-
-  const { data: existing } = await slotQuery(supabase, user.id, entry.recipeId, slot).maybeSingle();
-
-  if (existing) {
-    const { error } = await supabase
-      .from('food_log')
-      .update({ servings: existing.servings + entry.servings })
-      .eq('id', existing.id)
-      .eq('user_id', user.id);
-
-    if (error) return { ok: false, error: `Could not restore that: ${error.message}` };
-
-    revalidatePath('/log');
-    return { ok: true, logId: existing.id };
-  }
-
-  const { data: inserted, error } = await supabase
-    .from('food_log')
-    .insert({
-      user_id: user.id,
-      recipe_id: entry.recipeId,
-      service_date: entry.serviceDate,
-      meal_period_name: entry.mealPeriodName,
-      hall_id: entry.hallId,
-      servings: entry.servings,
-      calories_snapshot: entry.caloriesSnapshot,
-      protein_snapshot: entry.proteinSnapshot,
-      carbs_snapshot: entry.carbsSnapshot,
-      fat_snapshot: entry.fatSnapshot,
-    })
-    .select('id')
-    .single();
+  const { data: logId, error } = await supabase.rpc('restore_log', {
+    p_recipe_id: entry.recipeId,
+    p_service_date: entry.serviceDate,
+    p_meal_period_name: entry.mealPeriodName,
+    p_hall_id: entry.hallId,
+    p_servings: entry.servings,
+    p_calories_snapshot: entry.caloriesSnapshot,
+    p_protein_snapshot: entry.proteinSnapshot,
+    p_carbs_snapshot: entry.carbsSnapshot,
+    p_fat_snapshot: entry.fatSnapshot,
+  });
 
   if (error) return { ok: false, error: `Could not restore that: ${error.message}` };
 
   revalidatePath('/log');
-  return { ok: true, logId: inserted?.id };
+  return { ok: true, logId: logId ?? undefined };
 }
 
 export async function updateGoals(input: {
